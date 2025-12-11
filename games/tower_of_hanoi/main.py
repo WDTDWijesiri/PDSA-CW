@@ -1,6 +1,7 @@
 from ui import MainMenu
 
 def main():
+    """Initialize and run the Tower of Hanoi game."""
     app = MainMenu()
     app.run()
 
