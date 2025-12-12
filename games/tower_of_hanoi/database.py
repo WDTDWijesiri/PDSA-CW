@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS results (
     optimal_moves INTEGER NOT NULL,
     time_taken REAL NOT NULL,
     algorithm_time REAL NOT NULL,
+    solved INTEGER NOT NULL DEFAULT 0,
+    efficiency REAL NOT NULL DEFAULT 0.0,
     date TEXT NOT NULL
 );
 """
@@ -54,11 +56,25 @@ def init_db():
             cur = conn.cursor()
             cur.executescript(CREATE_TABLE_SQL + CREATE_INDEX_SQL)
             conn.commit()
+            # Ensure migration: add columns if older schema exists
+            cur.execute("PRAGMA table_info(results)")
+            cols = {r['name'] for r in cur.fetchall()}
+            if 'solved' not in cols:
+                try:
+                    cur.execute("ALTER TABLE results ADD COLUMN solved INTEGER NOT NULL DEFAULT 0")
+                except sqlite3.OperationalError:
+                    pass
+            if 'efficiency' not in cols:
+                try:
+                    cur.execute("ALTER TABLE results ADD COLUMN efficiency REAL NOT NULL DEFAULT 0.0")
+                except sqlite3.OperationalError:
+                    pass
+            conn.commit()
     except sqlite3.Error as e:
         print(f"Database initialization error: {e}")
 
 
-def insert_result(player, pegs, disks, moves, optimal, time_taken, algo_time):
+def insert_result(player, pegs, disks, moves, optimal, time_taken, algo_time, solved=0, efficiency=None):
     """
     Insert a game result into the database.
     
@@ -74,14 +90,21 @@ def insert_result(player, pegs, disks, moves, optimal, time_taken, algo_time):
     Raises:
         sqlite3.Error: If database operation fails
     """
+    # Compute efficiency if not provided and if moves > 0
     try:
+        if efficiency is None:
+            try:
+                efficiency = (optimal / moves) if moves and moves > 0 else 0.0
+            except Exception:
+                efficiency = 0.0
+
         with get_conn() as conn:
             cur = conn.cursor()
             cur.execute(
                 """INSERT INTO results 
-                   (player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, date) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (player, pegs, disks, moves, optimal, time_taken, algo_time, datetime.utcnow().isoformat())
+                   (player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, solved, efficiency, date) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (player, pegs, disks, moves, optimal, time_taken, algo_time, int(bool(solved)), float(efficiency), datetime.utcnow().isoformat())
             )
             conn.commit()
     except sqlite3.Error as e:
@@ -100,8 +123,8 @@ def fetch_all():
         with get_conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                """SELECT player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, date 
-                   FROM results 
+                """SELECT player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, solved, efficiency, date
+                   FROM results
                    ORDER BY date DESC"""
             )
             rows = cur.fetchall()
@@ -124,11 +147,16 @@ def fetch_leaderboard(limit=10):
     try:
         with get_conn() as conn:
             cur = conn.cursor()
+            # Include all players but rank solved games first.
+            # For solved games order by (moves - optimal) asc then time asc; unsolved get pushed below.
             cur.execute(
-                """SELECT player, pegs, disks, moves, optimal_moves, time_taken, date,
-                          (moves - optimal_moves) AS diff
+                """SELECT player, pegs, disks, moves, optimal_moves, time_taken, efficiency, date,
+                          (moves - optimal_moves) AS diff, solved
                    FROM results
-                   ORDER BY diff ASC, time_taken ASC
+                   ORDER BY solved DESC,
+                            CASE WHEN solved=1 THEN (moves - optimal_moves) ELSE 999999 END ASC,
+                            time_taken ASC,
+                            efficiency DESC
                    LIMIT ?""",
                 (limit,)
             )

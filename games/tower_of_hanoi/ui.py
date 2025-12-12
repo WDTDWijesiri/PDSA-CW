@@ -73,7 +73,7 @@ class MainMenu:
     def build_ui(self):
         title = tk.Label(
             self.root,
-            text="TOWER OF HANOI",
+            text="🏰  TOWER OF HANOI",
             bg=BG_COLOR,
             fg=ACCENT,
             font=TITLE_FONT
@@ -82,7 +82,7 @@ class MainMenu:
 
         subtitle = tk.Label(
             self.root,
-            text="Algorithmic Puzzle Simulator",
+            text="═══════════════════════════════════════════════════════════\nAlgorithmic Puzzle Simulator",
             bg=BG_COLOR,
             fg=TEXT,
             font=PIXEL_FONT
@@ -93,18 +93,18 @@ class MainMenu:
         frame.pack()
 
         buttons = [
-            ("Start Game", self.start_game_flow),
-            ("Statistics", self.show_statistics),
-            ("Leaderboard", self.show_leaderboard),
-            ("Algorithms Info", self.show_algorithm_info),
-            ("Quit Game", self.root.destroy),
+            ("▶️  START GAME", self.start_game_flow),
+            ("📊  STATISTICS", self.show_statistics),
+            ("🏆  LEADERBOARD", self.show_leaderboard),
+            ("🧠  ALGORITHM INFO", self.show_algorithm_info),
+            ("🚪  QUIT GAME", self.root.destroy),
         ]
 
         for text, cmd in buttons:
             btn = tk.Button(
                 frame,
                 text=text,
-                width=20,
+                width=25,
                 height=2,
                 command=cmd,
                 bg=CARD_COLOR,
@@ -112,7 +112,7 @@ class MainMenu:
                 font=PIXEL_FONT,
                 activebackground=ACCENT
             )
-            btn.pack(pady=10)
+            btn.pack(pady=8)
 
     # -------------------------------
     #  START GAME WORKFLOW
@@ -152,7 +152,7 @@ class MainMenu:
         while True:
             name = simpledialog.askstring(
                 "Player Name", 
-                "Enter your name (2-20 characters):",
+                "Enter your name:",
                 parent=self.root
             )
             if name is None:  # User cancelled
@@ -203,20 +203,26 @@ class MainMenu:
         win = tk.Toplevel(self.root)
         win.title("Game Statistics")
         win.configure(bg=BG_COLOR)
-        center_dialog_on_parent(self.root, win, 1100, 450)
+        center_dialog_on_parent(self.root, win, 1100, 500)
 
         title = tk.Label(win, text="📊 Game Records", bg=BG_COLOR, fg=ACCENT, font=PIXEL_FONT)
         title.pack(pady=10)
+        separator = tk.Label(win, text="═" * 115, bg=BG_COLOR, fg=ACCENT)
+        separator.pack(pady=(0, 10))
 
-        cols = ["Player", "Pegs", "Disks", "Moves", "Optimal", "Time (s)", "Algo Time (s)", "Date"]
+        cols = ["Player", "Pegs", "Disks", "Moves", "Optimal", "Time (s)", "Algo Time (s)", "Solved", "Efficiency (%)", "Date"]
         tree = ttk.Treeview(win, columns=cols, show="headings", height=15)
 
         for c in cols:
             tree.heading(c, text=c)
-            tree.column(c, width=130, anchor="center")
+            tree.column(c, width=110, anchor="center")
 
         for r in rows:
-            tree.insert("", "end", values=r)
+            # rows: player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, solved, efficiency, date
+            player, pegs, disks, moves, optimal, t_algo, algo_time, solved, efficiency, date = r
+            solved_text = "Yes" if solved else "No"
+            eff_pct = f"{(efficiency*100):.1f}" if efficiency is not None else "0.0"
+            tree.insert("", "end", values=(player, pegs, disks, moves, optimal, t_algo, algo_time, solved_text, eff_pct, date))
 
         tree.pack(padx=20, pady=10, fill="both", expand=True)
 
@@ -232,33 +238,34 @@ class MainMenu:
         win = tk.Toplevel(self.root)
         win.title("Leaderboard")
         win.configure(bg=BG_COLOR)
-        center_dialog_on_parent(self.root, win, 600, 450)
+        center_dialog_on_parent(self.root, win, 900, 450)
 
-        tk.Label(win, text="🏆 Leaderboard", bg=BG_COLOR, fg=ACCENT, font=PIXEL_FONT).pack(pady=10)
+        tk.Label(win, text="🏆 Leaderboard (Completed Games)", bg=BG_COLOR, fg=ACCENT, font=PIXEL_FONT).pack(pady=10)
+        separator = tk.Label(win, text="═" * 100, bg=BG_COLOR, fg=ACCENT)
+        separator.pack(pady=(0, 10))
 
-        # Create scrollable frame
-        canvas = tk.Canvas(win, bg=BG_COLOR, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(win, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg=BG_COLOR)
+        cols = ["Rank", "Player", "Pegs", "Disks", "Moves", "Optimal", "Efficiency (%)", "Time (s)", "Solved", "Date"]
+        tree = ttk.Treeview(win, columns=cols, show="headings", height=12)
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        for c in cols:
+            tree.heading(c, text=c)
+            # make rank narrow, name wider
+            if c == "Player":
+                tree.column(c, width=180, anchor="w")
+            elif c == "Rank":
+                tree.column(c, width=50, anchor="center")
+            else:
+                tree.column(c, width=100, anchor="center")
 
         for i, r in enumerate(rows, start=1):
-            player, pegs, disks, moves, optimal, t, date, diff = r
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"#{i}"
-            line = f"{medal} {player} • {disks} disks • {moves} moves (optimal: {optimal}) • {t:.2f}s"
-            tk.Label(scrollable_frame, text=line, bg=BG_COLOR, fg=TEXT, font=SMALL_FONT, justify="left").pack(anchor="w", padx=20, pady=5)
+            # rows: player, pegs, disks, moves, optimal_moves, time_taken, efficiency, date, diff, solved
+            player, pegs, disks, moves, optimal, t, efficiency, date, diff, solved = r
+            eff_pct = f"{(efficiency*100):.1f}" if efficiency is not None else "0.0"
+            solved_text = "Yes" if solved else "No"
+            tree.insert("", "end", values=(i, player, pegs, disks, moves, optimal, eff_pct, f"{t:.2f}", solved_text, date))
 
-        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y")
-
-        tk.Button(win, text="Close", command=win.destroy, bg=CARD_COLOR, fg=TEXT).pack(pady=10)
+        tree.pack(padx=10, pady=10, fill="both", expand=True)
+        tk.Button(win, text="Close", command=win.destroy, bg=CARD_COLOR, fg=TEXT).pack(pady=8)
 
     # -------------------------------
     #  ALGORITHM INFO
@@ -271,18 +278,18 @@ class MainMenu:
         center_dialog_on_parent(self.root, win, 500, 400)
 
         txt = (
-            "🏔️ TOWER OF HANOI ALGORITHM\n"
-            "══════════════════════════════════\n\n"
-            "Approach: Recursive Method\n"
-            "Time Complexity: O(2ⁿ)\n"
-            "Optimal Moves: 2ⁿ - 1\n\n"
-            "How it works:\n"
-            "1. Move n-1 disks from source to auxiliary\n"
-            "2. Move the largest disk to destination\n"
-            "3. Move n-1 disks from auxiliary to destination\n\n"
-            "Variations:\n"
-            "• 3 pegs: Classic Hanoi (exponential)\n"
-            "• 4 pegs: Frame-Stewart (sub-exponential)\n"
+            "🧠 TOWER OF HANOI ALGORITHM\n"
+            "═" * 52 + "\n\n"
+            "⚙️  Approach: Recursive Method\n"
+            "⏱️  Time Complexity: O(2ⁿ)\n"
+            "📈 Optimal Moves: 2ⁿ - 1\n\n"
+            "🔄 How it works:\n"
+            "   1. Move n-1 disks from source to auxiliary\n"
+            "   2. Move the largest disk to destination\n"
+            "   3. Move n-1 disks from auxiliary to destination\n\n"
+            "🏔️  Variations:\n"
+            "   • 3 pegs: Classic Hanoi (exponential)\n"
+            "   • 4 pegs: Frame-Stewart (sub-exponential)\n"
         )
 
         label = tk.Label(win, text=txt, bg=BG_COLOR, fg=TEXT, font=("Courier", 11), justify="left")
@@ -390,17 +397,17 @@ class GameWindow:
     def build_info_panel(self):
         """Build information display panel."""
         frame = tk.Frame(self.win, bg=BG_COLOR)
-        frame.pack()
+        frame.pack(pady=10)
 
-        self.moves_label = tk.Label(frame, text="Moves: 0", fg=TEXT, bg=BG_COLOR, font=SMALL_FONT)
-        self.moves_label.pack(side="left", padx=10)
+        self.moves_label = tk.Label(frame, text="🎮 Moves: 0", fg=TEXT, bg=BG_COLOR, font=SMALL_FONT)
+        self.moves_label.pack(side="left", padx=15)
 
         opt = optimal_moves_count(self.disks)
-        self.opt_label = tk.Label(frame, text=f"Optimal: {opt}", fg=ACCENT, bg=BG_COLOR, font=SMALL_FONT)
-        self.opt_label.pack(side="left", padx=10)
+        self.opt_label = tk.Label(frame, text=f"✨ Optimal: {opt}", fg=ACCENT, bg=BG_COLOR, font=SMALL_FONT)
+        self.opt_label.pack(side="left", padx=15)
 
-        self.time_label = tk.Label(frame, text="Time: 0.00s", fg=TEXT, bg=BG_COLOR, font=SMALL_FONT)
-        self.time_label.pack(side="left", padx=10)
+        self.time_label = tk.Label(frame, text="⏱️  Time: 0.00s", fg=TEXT, bg=BG_COLOR, font=SMALL_FONT)
+        self.time_label.pack(side="left", padx=15)
 
     # -------------------------------
     #  MOVE CONTROLS
@@ -408,27 +415,30 @@ class GameWindow:
     def build_controls(self):
         """Build game control buttons and move selection."""
         frame = tk.Frame(self.win, bg=BG_COLOR)
-        frame.pack(pady=10)
+        frame.pack(pady=12)
 
         options = [chr(ord("A") + i) for i in range(self.pegs)]
 
         self.from_var = tk.StringVar(value="A")
         self.to_var = tk.StringVar(value="B")
 
-        tk.Label(frame, text="From:", bg=BG_COLOR, fg=TEXT, font=SMALL_FONT).pack(side="left", padx=5)
+        tk.Label(frame, text="From:", bg=BG_COLOR, fg=TEXT, font=SMALL_FONT).pack(side="left", padx=8)
         ttk.Combobox(frame, textvariable=self.from_var, values=options, width=4, state="readonly").pack(side="left", padx=5)
 
-        tk.Label(frame, text="To:", bg=BG_COLOR, fg=TEXT, font=SMALL_FONT).pack(side="left", padx=5)
+        tk.Label(frame, text="To:", bg=BG_COLOR, fg=TEXT, font=SMALL_FONT).pack(side="left", padx=8)
         ttk.Combobox(frame, textvariable=self.to_var, values=options, width=4, state="readonly").pack(side="left", padx=5)
 
-        tk.Button(frame, text="Make Move", bg=ACCENT, fg="black", font=("Helvetica", 10, "bold"),
+        tk.Button(frame, text="▶️  Make Move", bg=ACCENT, fg="black", font=("Helvetica", 10, "bold"),
                   command=self.do_move).pack(side="left", padx=10)
 
-        tk.Button(frame, text="Auto Solve", bg="#4CAF50", fg="white",
-                  command=self.auto_solve).pack(side="left", padx=5)
+        tk.Button(frame, text="⚡ Auto Solve", bg="#4CAF50", fg="white",
+                  command=self.auto_solve).pack(side="left", padx=8)
 
-        tk.Button(frame, text="Save & Quit", bg=CARD_COLOR, fg=TEXT,
-                  command=self.save_and_exit).pack(side="left", padx=5)
+        tk.Button(frame, text="💾 Save & Quit", bg=CARD_COLOR, fg=TEXT,
+              command=self.save_and_exit).pack(side="left", padx=8)
+
+        tk.Button(frame, text="🔙 Back to Menu", bg="#B91C1C", fg="white",
+              command=self.back_to_menu).pack(side="left", padx=8)
 
     # -------------------------------
     #  DRAW DISKS + PEGS
@@ -491,7 +501,7 @@ class GameWindow:
                 return
 
             self.manager.move(frm, to)
-            self.moves_label.config(text=f"Moves: {self.manager.moves_count}")
+            self.moves_label.config(text=f"🎮 Moves: {self.manager.moves_count}")
             self.draw_pegs()
             
             if self.manager.is_solved():
@@ -524,7 +534,7 @@ class GameWindow:
             except:
                 pass
 
-            self.moves_label.config(text=f"Moves: {self.manager.moves_count}")
+            self.moves_label.config(text=f"🎮 Moves: {self.manager.moves_count}")
             self.draw_pegs()
             self.win.update()
             time.sleep(0.25)
@@ -542,10 +552,15 @@ class GameWindow:
         optimal = optimal_moves_count(self.disks)
 
         try:
+            solved = int(self.manager.is_solved())
+            moves = self.manager.moves_count or 0
+            efficiency = (optimal / moves) if solved and moves > 0 else 0.0
             database.insert_result(
                 self.player, self.pegs, self.disks,
-                self.manager.moves_count, optimal,
-                elapsed, algo_time
+                moves, optimal,
+                elapsed, algo_time,
+                solved=solved,
+                efficiency=efficiency
             )
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not save result: {e}", parent=self.win)
@@ -554,16 +569,29 @@ class GameWindow:
         efficiency = (optimal / self.manager.moves_count) * 100
         message = (
             f"🎉 SOLVED! 🎉\n"
-            f"{'═' * 35}\n"
-            f"Player: {self.player}\n"
-            f"Moves: {self.manager.moves_count} / {optimal} (optimal)\n"
-            f"Efficiency: {efficiency:.1f}%\n"
-            f"Time: {elapsed:.2f} seconds"
+            f"{'═' * 40}\n"
+            f"👤 Player: {self.player}\n"
+            f"🎮 Moves: {self.manager.moves_count} / {optimal} (optimal)\n"
+            f"⭐ Efficiency: {efficiency:.1f}%\n"
+            f"⏱️  Time: {elapsed:.2f} seconds"
         )
 
         messagebox.showinfo("Puzzle Solved", message, parent=self.win)
 
         # Return to main menu
+        for w in self.win.winfo_children():
+            w.destroy()
+        self.win.title("Tower of Hanoi")
+        self.win.geometry("1000x650")
+        if self.menu:
+            self.menu.build_ui()
+
+    def back_to_menu(self):
+        """Return to main menu without saving current progress (confirm)."""
+        if not messagebox.askyesno("Confirm", "Return to main menu? Unsaved progress will be lost.", parent=self.win):
+            return
+
+        # Clear game UI and return
         for w in self.win.winfo_children():
             w.destroy()
         self.win.title("Tower of Hanoi")
@@ -586,10 +614,15 @@ class GameWindow:
             optimal = optimal_moves_count(self.disks)
 
             try:
+                solved = int(self.manager.is_solved())
+                moves = self.manager.moves_count or 0
+                efficiency = (optimal / moves) if solved and moves > 0 else 0.0
                 database.insert_result(
                     self.player, self.pegs, self.disks,
-                    self.manager.moves_count, optimal,
-                    elapsed, algo_time
+                    moves, optimal,
+                    elapsed, algo_time,
+                    solved=solved,
+                    efficiency=efficiency
                 )
             except Exception as e:
                 messagebox.showerror("Database Error", f"Could not save result: {e}", parent=self.win)
