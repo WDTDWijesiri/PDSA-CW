@@ -104,7 +104,7 @@ def insert_result(player, pegs, disks, moves, optimal, time_taken, algo_time, so
                 """INSERT INTO results 
                    (player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, solved, efficiency, date) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (player, pegs, disks, moves, optimal, time_taken, algo_time, int(bool(solved)), float(efficiency), datetime.utcnow().isoformat())
+                (player, pegs, disks, moves, optimal, time_taken, algo_time, int(bool(solved)), float(efficiency), datetime.now().isoformat())
             )
             conn.commit()
     except sqlite3.Error as e:
