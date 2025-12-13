@@ -151,13 +151,12 @@ class MainMenu:
             "• Move 1 disk at a time\n"
             "• Never place larger disk on smaller\n"
             f"• Solve with {pegs} pegs\n"
-            f"• Optimal moves: {optimal_moves}\n"
             "• Try to beat the optimal!"
         )
         messagebox.showinfo("Rules", rules, parent=self.root)
         
         # Ask for prediction
-        self._get_prediction(optimal_moves, disks)
+        self._get_prediction(optimal_moves, disks, pegs)
 
         # Launch game
         for w in self.root.winfo_children():
@@ -165,12 +164,12 @@ class MainMenu:
 
         GameWindow(self.root, name, pegs, disks, menu=self)
     
-    def _get_prediction(self, optimal_moves, disks):
+    def _get_prediction(self, optimal_moves, disks, pegs):
         """Ask player to predict move count and sequence."""
         pred_win = tk.Toplevel(self.root)
         pred_win.title("Make Your Prediction")
         pred_win.geometry("700x550")
-        pred_win.configure(bg=BG_COLOR)
+        pred_win.configure(bg=CARD_COLOR)
         
         # Center window
         pred_win.update_idletasks()
@@ -187,17 +186,17 @@ class MainMenu:
         )
         title.pack(pady=20)
         
-        separator = tk.Label(pred_win, text="═" * 50, bg=BG_COLOR, fg=ACCENT)
+        separator = tk.Label(pred_win, text="═" * 50, bg=CARD_COLOR, fg=ACCENT)
         separator.pack(pady=(0, 20))
         
         # Move count prediction
-        frame1 = tk.Frame(pred_win, bg=BG_COLOR)
+        frame1 = tk.Frame(pred_win, bg=CARD_COLOR)
         frame1.pack(pady=15, padx=30, fill="x")
         
         tk.Label(
             frame1, 
             text="📊 Predict move count:", 
-            bg=BG_COLOR, 
+            bg=CARD_COLOR, 
             fg=TEXT, 
             font=("Helvetica", 15, "bold")
         ).pack(anchor="w")
@@ -212,13 +211,13 @@ class MainMenu:
         move_entry.pack(anchor="w", pady=8)
         
         # Move sequence prediction
-        frame2 = tk.Frame(pred_win, bg=BG_COLOR)
+        frame2 = tk.Frame(pred_win, bg=CARD_COLOR)
         frame2.pack(pady=15, padx=30, fill="both", expand=True)
         
         tk.Label(
             frame2, 
             text="🔄 Predict move sequence (e.g., A→B, B→C, ...):",
-            bg=BG_COLOR, 
+            bg=CARD_COLOR, 
             fg=TEXT, 
             font=("Helvetica", 15, "bold")
         ).pack(anchor="w")
@@ -228,13 +227,40 @@ class MainMenu:
             height=7,
             width=50,
             font=("Helvetica", 13),
-            bg=CARD_COLOR,
-            fg=TEXT
+            bg=TEXT,
+            fg=CARD_COLOR
         )
         sequence_text.pack(anchor="w", pady=8, fill="both", expand=True)
         
         # Close button
         def close_and_save():
+            move_count = move_count_var.get().strip()
+            sequence = sequence_text.get("1.0", tk.END).strip()
+            
+            # Check if both fields are filled
+            if not move_count or not sequence:
+                messagebox.showwarning("Empty Fields", "Fields cannot be empty.", parent=pred_win)
+                return
+            
+            # Check if move count is a number
+            try:
+                int(move_count)
+            except ValueError:
+                messagebox.showwarning("Invalid Move Count", "not a number", parent=pred_win)
+                return
+            
+            # Check sequence format
+            lines = [line.strip() for line in sequence.split('\n') if line.strip()]
+            valid_pegs = ['A', 'B', 'C', 'D'][:pegs]  # Depending on number of pegs
+            for line in lines:
+                if not re.match(r'^[A-D]->[A-D]$', line):
+                    messagebox.showwarning("Invalid Input", f"Invalid format. Use format like A->B", parent=pred_win)
+                    return
+                from_peg, to_peg = line.split('->')
+                if from_peg not in valid_pegs or to_peg not in valid_pegs:
+                    messagebox.showwarning("Invalid Peg", f"Invalid peg in: {line}. Valid pegs: {', '.join(valid_pegs)}", parent=pred_win)
+                    return
+            
             pred_win.destroy()
         
         btn = tk.Button(
@@ -304,7 +330,7 @@ class MainMenu:
             pegs = int(val)
             if pegs in (3, 4):
                 return pegs
-            messagebox.showwarning("Invalid Choice", "Only 3 or 4 pegs allowed.", parent=self.root)
+            messagebox.showwarning("Invalid Input", "Only 3 or 4 pegs allowed.", parent=self.root)
 
     # -------------------------------
     #  STATISTICS WINDOW
@@ -315,12 +341,12 @@ class MainMenu:
 
         win = tk.Toplevel(self.root)
         win.title("Game Statistics")
-        win.configure(bg=BG_COLOR)
+        win.configure(bg=CARD_COLOR)
         center_dialog_on_parent(self.root, win, 1100, 500)
 
-        title = tk.Label(win, text="📊 Game Records", bg=BG_COLOR, fg=ACCENT, font=("Helvetica", 16, "bold"))
+        title = tk.Label(win, text="📊 Game Records", bg=CARD_COLOR, fg=ACCENT, font=("Helvetica", 16, "bold"))
         title.pack(pady=12)
-        separator = tk.Label(win, text="═" * 115, bg=BG_COLOR, fg=ACCENT, font=("Helvetica", 10))
+        separator = tk.Label(win, text="═" * 115, bg=CARD_COLOR, fg=ACCENT, font=("Helvetica", 10))
         separator.pack(pady=(0, 12))
 
         cols = ["Player", "Pegs", "Disks", "Moves", "Optimal", "Time (s)", "Algo Time (s)", "Solved", "Efficiency (%)", "Date"]
@@ -365,11 +391,11 @@ class MainMenu:
 
         win = tk.Toplevel(self.root)
         win.title("Leaderboard")
-        win.configure(bg=BG_COLOR)
+        win.configure(bg=CARD_COLOR)
         center_dialog_on_parent(self.root, win, 900, 450)
 
-        tk.Label(win, text="🏆 Leaderboard (Completed Games)", bg=BG_COLOR, fg=ACCENT, font=("Helvetica", 16, "bold")).pack(pady=12)
-        separator = tk.Label(win, text="═" * 100, bg=BG_COLOR, fg=ACCENT, font=("Helvetica", 10))
+        tk.Label(win, text="🏆 Leaderboard", bg=CARD_COLOR, fg=ACCENT, font=("Helvetica", 16, "bold")).pack(pady=12)
+        separator = tk.Label(win, text="═" * 100, bg=CARD_COLOR, fg=ACCENT, font=("Helvetica", 10))
         separator.pack(pady=(0, 12))
 
         cols = ["Rank", "Player", "Pegs", "Disks", "Moves", "Optimal", "Efficiency (%)", "Time (s)", "Solved", "Date"]
@@ -445,7 +471,7 @@ class MainMenu:
         )
         label.pack(padx=25, pady=20)
 
-        frame = tk.Frame(win, bg=BG_COLOR)
+        frame = tk.Frame(win, bg=CARD_COLOR)
         frame.pack(pady=15)
 
         tk.Button(
@@ -548,6 +574,7 @@ class GameWindow:
         self.target_peg = None
         self.highlight_id = None
         self.paused = False
+        self.hint_index = 0
         
         # Build UI in correct order: title → info → pegs → controls
         self.build_title()
@@ -676,6 +703,9 @@ class GameWindow:
         tk.Button(frame, text="▶️  Make Move", bg=ACCENT, fg="black", font=("Helvetica", 11, "bold"),
                   command=self.do_move, relief="raised", bd=2, width=12, height=1).pack(side="left", padx=10)
 
+        tk.Button(frame, text="💡 Hint", bg="#FF9800", fg="black", font=("Helvetica", 11, "bold"),
+                  command=self.show_hint, relief="raised", bd=2, width=12, height=1).pack(side="left", padx=8)
+
         tk.Button(frame, text="⚡ Auto Solve", bg="#4CAF50", fg="white", font=("Helvetica", 11, "bold"),
                   command=self.auto_solve, relief="raised", bd=2, width=12, height=1).pack(side="left", padx=8)
 
@@ -698,6 +728,19 @@ class GameWindow:
         opt = optimal_moves_count(self.disks, self.pegs)
         self.opt_label = tk.Label(stats_frame, text=f"✨ Optimal: {opt}", fg=ACCENT, bg=BG_COLOR, font=("Helvetica", 13, "bold"))
         self.opt_label.pack(side="left", padx=20)
+        
+        # Sequence input below stats
+        seq_frame = tk.Frame(self.win, bg=BG_COLOR)
+        seq_frame.pack(pady=15)
+        
+        tk.Label(seq_frame, text="🔄 Enter Move Sequence:", bg=BG_COLOR, fg=TEXT, font=("Helvetica", 12, "bold")).pack(anchor="w", pady=(0, 5))
+        
+        self.seq_var = tk.StringVar()
+        seq_entry = tk.Entry(seq_frame, textvariable=self.seq_var, font=("Helvetica", 11), width=40)
+        seq_entry.pack(side="left", padx=(0, 10))
+        
+        tk.Button(seq_frame, text="✅ OK", bg="#4CAF50", fg="white", font=("Helvetica", 11, "bold"),
+                  command=self.execute_sequence, relief="raised", bd=2, width=8, height=1).pack(side="left")
     
     def toggle_pause(self):
         """Toggle pause state and freeze timer."""
@@ -715,6 +758,7 @@ class GameWindow:
         self.time_label.config(text="⏱️  Time: 0.00s")
         self.draw_pegs()
         self.paused = False
+        self.hint_index = 0
         self.pause_btn.config(text="⏸️  Pause", bg="#FFA500")
     
     def new_game(self):
@@ -729,6 +773,7 @@ class GameWindow:
         self.opt_label.config(text=f"✨ Optimal: {opt}")
         self.draw_pegs()
         self.paused = False
+        self.hint_index = 0
         self.pause_btn.config(text="⏸️  Pause", bg="#FFA500")
 
     # -------------------------------
@@ -911,6 +956,43 @@ class GameWindow:
             self.draw_pegs()
 
     # -------------------------------
+    #  HINT
+    # -------------------------------
+    def show_hint(self):
+        """Show the next move in the optimal solution sequence."""
+        moves, _ = timed_recursive_solution(self.disks, self.pegs)
+        
+        if self.hint_index >= len(moves):
+            messagebox.showinfo("Hint", "🎉 You've seen all optimal moves! Try solving it yourself.", parent=self.win)
+            return
+        
+        current_move = moves[self.hint_index]
+        from_peg = current_move[0]
+        to_peg = current_move[1]
+        
+        hint_text = f"💡 Step {self.hint_index + 1}: {from_peg} → {to_peg}"
+        messagebox.showinfo("Hint", hint_text, parent=self.win)
+        
+        self.hint_index += 1
+
+    def show_hint(self):
+        """Show the next move in the optimal solution sequence."""
+        moves, _ = timed_recursive_solution(self.disks, self.pegs)
+        
+        if self.hint_index >= len(moves):
+            messagebox.showinfo("Hint", "🎉 You've seen all optimal moves! Try solving it yourself.", parent=self.win)
+            return
+        
+        current_move = moves[self.hint_index]
+        from_peg = current_move[0]
+        to_peg = current_move[1]
+        
+        hint_text = f"💡 Step {self.hint_index + 1}: {from_peg} → {to_peg}"
+        messagebox.showinfo("Hint", hint_text, parent=self.win)
+        
+        self.hint_index += 1
+
+    # -------------------------------
     #  USER MOVE
     # -------------------------------
     def do_move(self):
@@ -964,6 +1046,71 @@ class GameWindow:
             self.win.update()
             time.sleep(0.25)
 
+        if self.manager.is_solved():
+            self.handle_win()
+
+    # -------------------------------
+    #  EXECUTE SEQUENCE
+    # -------------------------------
+    def execute_sequence(self):
+        """Execute a user-entered sequence of moves."""
+        seq_text = self.seq_var.get().strip()
+        if not seq_text:
+            messagebox.showwarning("Empty Sequence", "Please enter a move sequence.", parent=self.win)
+            return
+        
+        # Parse the sequence
+        moves = []
+        parts = [p.strip() for p in seq_text.replace(',', ' ').split() if p.strip()]
+        
+        valid_pegs = [chr(ord('A') + i) for i in range(self.pegs)]
+        
+        for part in parts:
+            if '->' not in part:
+                messagebox.showerror("Invalid Format", f"Invalid move format: {part}. Use A->B format.", parent=self.win)
+                return
+            from_peg, to_peg = part.split('->')
+            from_peg = from_peg.strip().upper()
+            to_peg = to_peg.strip().upper()
+            
+            if from_peg not in valid_pegs or to_peg not in valid_pegs:
+                messagebox.showerror("Invalid Peg", f"Invalid peg in: {part}. Valid pegs: {', '.join(valid_pegs)}", parent=self.win)
+                return
+            
+            moves.append((from_peg, to_peg))
+        
+        if not moves:
+            messagebox.showwarning("Empty Sequence", "No valid moves found.", parent=self.win)
+            return
+        
+        # Confirm execution
+        confirm_text = f"Execute {len(moves)} moves?\n(This will apply the moves to current game state)"
+        if not messagebox.askyesno("Execute Sequence", confirm_text, parent=self.win):
+            return
+        
+        # Execute moves with animation
+        for a, b in moves:
+            # Check if paused and wait
+            while self.paused:
+                self.win.update()
+                time.sleep(0.1)
+            
+            try:
+                frm = ord(a) - ord("A")
+                to = ord(b) - ord("A")
+                self.manager.move(frm, to)
+            except ValueError as e:
+                messagebox.showerror("Invalid Move", f"Move {a}->{b} failed: {str(e)}", parent=self.win)
+                return
+
+            self.moves_label.config(text=f"🎮 Moves: {self.manager.moves_count}")
+            self.draw_pegs()
+            self.win.update()
+            time.sleep(0.25)
+        
+        # Clear the input field
+        self.seq_var.set("")
+        
         if self.manager.is_solved():
             self.handle_win()
 
