@@ -4,8 +4,14 @@ import random
 import time
 import re
 from game import GameManager
-from algorithms import optimal_moves_count, timed_recursive_solution
+from algorithms import (
+    optimal_moves_count, 
+    timed_recursive_solution, 
+    timed_iterative_solution,
+    format_moves
+)
 import database
+
 
 
 def center_dialog_on_parent(parent_window, dialog_window, width=400, height=200):
@@ -24,10 +30,6 @@ def center_dialog_on_parent(parent_window, dialog_window, width=400, height=200)
     dialog_window.geometry(f"{width}x{height}+{x}+{y}")
 
 
-
-# ----------------------------
-#  CUTE GAME THEME COLORS
-# ----------------------------
 BG_COLOR = "#0B1B2B"       # dark navy blue
 CARD_COLOR = "#1B3A57"     # softer dark card
 ACCENT = "#00E5FF"         # soft baby-blue
@@ -37,9 +39,6 @@ PIXEL_FONT = ("Helvetica", 16, "bold")
 TITLE_FONT = ("Helvetica", 28, "bold")
 SMALL_FONT = ("Helvetica", 12)
 
-# ------------------------------------------------
-# MAIN MENU CLASS (Start Game, Stats, etc.)
-# ------------------------------------------------
 class MainMenu:
     def __init__(self):
         database.init_db()
@@ -75,9 +74,7 @@ class MainMenu:
     def run(self):
         self.root.mainloop()
 
-    # -------------------------------
-    #  BUILD MAIN MENU UI
-    # -------------------------------
+
     def build_ui(self):
         title = tk.Label(
             self.root,
@@ -122,23 +119,17 @@ class MainMenu:
             )
             btn.pack(pady=8)
 
-    # -------------------------------
-    #  START GAME WORKFLOW
-    # -------------------------------
     def start_game_flow(self):
-        # Get player name with validation
+        
         name = self._get_player_name()
         if not name:
             return
-
-        # Get number of pegs
+     
         pegs = self._get_pegs_choice()
-
-        # Randomly select disks and show info
+    
         disks = random.randint(5, 10)
         optimal_moves = optimal_moves_count(disks, pegs)
         
-        # Show disks and optimal moves (styled dialog)
         messagebox.showinfo("Disks Selected",
                        f"🎲 Disks selected: {disks}\n\n"
                        f"Good luck!",
@@ -158,7 +149,7 @@ class MainMenu:
         # Ask for prediction
         self._get_prediction(optimal_moves, disks, pegs)
 
-        # Launch game
+    
         for w in self.root.winfo_children():
             w.destroy()
 
@@ -171,7 +162,7 @@ class MainMenu:
         pred_win.geometry("700x550")
         pred_win.configure(bg=CARD_COLOR)
         
-        # Center window
+        #center window
         pred_win.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - 700) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - 550) // 2
@@ -189,7 +180,7 @@ class MainMenu:
         separator = tk.Label(pred_win, text="═" * 50, bg=CARD_COLOR, fg=ACCENT)
         separator.pack(pady=(0, 20))
         
-        # Move count prediction
+        #move count prediction
         frame1 = tk.Frame(pred_win, bg=CARD_COLOR)
         frame1.pack(pady=15, padx=30, fill="x")
         
@@ -210,7 +201,7 @@ class MainMenu:
         )
         move_entry.pack(anchor="w", pady=8)
         
-        # Move sequence prediction
+        #move sequence prediction
         frame2 = tk.Frame(pred_win, bg=CARD_COLOR)
         frame2.pack(pady=15, padx=30, fill="both", expand=True)
         
@@ -232,26 +223,23 @@ class MainMenu:
         )
         sequence_text.pack(anchor="w", pady=8, fill="both", expand=True)
         
-        # Close button
         def close_and_save():
             move_count = move_count_var.get().strip()
             sequence = sequence_text.get("1.0", tk.END).strip()
             
-            # Check if both fields are filled
             if not move_count or not sequence:
                 messagebox.showwarning("Empty Fields", "Fields cannot be empty.", parent=pred_win)
                 return
             
-            # Check if move count is a number
             try:
                 int(move_count)
             except ValueError:
                 messagebox.showwarning("Invalid Move Count", "not a number", parent=pred_win)
                 return
             
-            # Check sequence format
+
             lines = [line.strip() for line in sequence.split('\n') if line.strip()]
-            valid_pegs = ['A', 'B', 'C', 'D'][:pegs]  # Depending on number of pegs
+            valid_pegs = ['A', 'B', 'C', 'D'][:pegs]  #depending on number of pegs
             for line in lines:
                 if not re.match(r'^[A-D]->[A-D]$', line):
                     messagebox.showwarning("Invalid Input", f"Invalid format. Use format like A->B", parent=pred_win)
@@ -332,9 +320,7 @@ class MainMenu:
                 return pegs
             messagebox.showwarning("Invalid Input", "Only 3 or 4 pegs allowed.", parent=self.root)
 
-    # -------------------------------
-    #  STATISTICS WINDOW
-    # -------------------------------
+
     def show_statistics(self):
         """Display all game statistics in a new window."""
         rows = database.fetch_all()
@@ -351,11 +337,11 @@ class MainMenu:
 
         cols = ["Player", "Pegs", "Disks", "Moves", "Optimal", "Time (s)", "Algo Time (s)", "Solved", "Efficiency (%)", "Date"]
         
-        # Frame for treeview with scrollbars
+        
         tree_frame = tk.Frame(win, bg=BG_COLOR)
         tree_frame.pack(padx=20, pady=10, fill="both", expand=True)
         
-        # Scrollbars
+        
         vsb = ttk.Scrollbar(tree_frame, orient="vertical")
         hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
         
@@ -368,11 +354,21 @@ class MainMenu:
             tree.column(c, width=110, anchor="center")
 
         for r in rows:
-            # rows: player, pegs, disks, moves, optimal_moves, time_taken, algorithm_time, solved, efficiency, date
-            player, pegs, disks, moves, optimal, t_algo, algo_time, solved, efficiency, date = r
+            
+            player = r[0] if len(r) > 0 else "Unknown"
+            pegs = r[1] if len(r) > 1 else 0
+            disks = r[2] if len(r) > 2 else 0
+            moves = r[3] if len(r) > 3 else 0
+            optimal = r[4] if len(r) > 4 else 0
+            time_taken = r[5] if len(r) > 5 else 0.0
+            algo_time = r[6] if len(r) > 6 else 0.0
+            solved = r[7] if len(r) > 7 else 0
+            efficiency = r[8] if len(r) > 8 else 0.0
+            date = r[9] if len(r) > 9 else ""
+            
             solved_text = "Yes" if solved else "No"
             eff_pct = f"{(efficiency*100):.1f}" if efficiency is not None else "0.0"
-            tree.insert("", "end", values=(player, pegs, disks, moves, optimal, t_algo, algo_time, solved_text, eff_pct, date))
+            tree.insert("", "end", values=(player, pegs, disks, moves, optimal, f"{time_taken:.2f}", f"{algo_time:.4f}", solved_text, eff_pct, date))
 
         tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
@@ -382,9 +378,7 @@ class MainMenu:
 
         tk.Button(win, text="Close", command=win.destroy, bg=CANCEL_CARD, fg=TEXT).pack(pady=10)
 
-    # -------------------------------
-    #  LEADERBOARD
-    # -------------------------------
+    
     def show_leaderboard(self):
         """Display the leaderboard with top players."""
         rows = database.fetch_leaderboard()
@@ -400,11 +394,11 @@ class MainMenu:
 
         cols = ["Rank", "Player", "Pegs", "Disks", "Moves", "Optimal", "Efficiency (%)", "Time (s)", "Solved", "Date"]
         
-        # Frame for treeview with scrollbars
+        
         tree_frame = tk.Frame(win, bg=BG_COLOR)
         tree_frame.pack(padx=10, pady=10, fill="both", expand=True)
         
-        # Scrollbars
+        
         vsb = ttk.Scrollbar(tree_frame, orient="vertical")
         hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
         
@@ -436,29 +430,29 @@ class MainMenu:
         tree_frame.grid_columnconfigure(0, weight=1)
         tk.Button(win, text="Close", command=win.destroy, bg=CANCEL_CARD, fg=TEXT).pack(pady=8)
 
-    # -------------------------------
-    #  ALGORITHM INFO
-    # -------------------------------
+    
     def show_algorithm_info(self):
         """Display information about the Tower of Hanoi algorithm."""
         win = tk.Toplevel(self.root)
         win.title("Algorithm Information")
         win.configure(bg=CARD_COLOR)
-        center_dialog_on_parent(self.root, win, 650, 550)
+        center_dialog_on_parent(self.root, win, 900, 550)
 
         txt = (
-            "🧠 TOWER OF HANOI ALGORITHM\n"
+            "🧠 TOWER OF HANOI ALGORITHMS\n"
             "═════════════════════════════════════════════════\n\n"
-            "⚙️  Approach: Recursive Method\n"
-            "⏱️  Time Complexity: O(2ⁿ)\n"
-            "📈 Optimal Moves: 2ⁿ - 1\n\n"
-            "🔄 How it works:\n"
+            "⚙️  Approaches: Recursive and Iterative Methods\n"
+            "⏱️  Time Complexity: O(2ⁿ) for 3 pegs / Sub-exponential for 4+ pegs (Frame-Stewart)\n"
+            "📈 Optimal Moves: 2ⁿ - 1 (3 pegs) / Frame-Stewart bound (4 pegs)\n\n"
+            "🔄 Recursive How it Works:\n"
             "   1. Move n-1 disks from source to auxiliary\n"
             "   2. Move the largest disk to destination\n"
             "   3. Move n-1 disks from auxiliary to destination\n\n"
+            "🔁 Iterative How it Works:\n"
+            "   Uses stacks to simulate moves without recursion, processing disks in order.\n\n"
             "🏔️  Variations:\n"
-            "   • 3 pegs: Classic Hanoi (exponential)\n"
-            "   • 4 pegs: Frame-Stewart (sub-exponential)\n"
+            "   • 3 pegs: Classic Hanoi (exponential, proven optimal)\n"
+            "   • 4 pegs: Frame-Stewart (sub-exponential, conjectured near-optimal)\n"
         )
 
         label = tk.Label(
@@ -520,7 +514,6 @@ class MainMenu:
         )
         header.pack(pady=10)
 
-        # Scrollable text
         text_frame = tk.Frame(example_win, bg=BG_COLOR)
         text_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -543,10 +536,6 @@ class MainMenu:
 
         tk.Button(example_win, text="Close", command=example_win.destroy, bg=CANCEL_CARD, fg=TEXT).pack(pady=10)
 
-
-# ------------------------------------------------
-# GAME WINDOW
-# ------------------------------------------------
 class GameWindow:
     """Main game window for playing Tower of Hanoi."""
     
@@ -564,7 +553,6 @@ class GameWindow:
         self.manager = GameManager(pegs=pegs, disks=disks)
         self.manager.start()
         
-        # Drag-drop tracking
         self.dragging = False
         self.dragged_disk = None
         self.dragged_disk_size = None
@@ -576,15 +564,14 @@ class GameWindow:
         self.paused = False
         self.hint_index = 0
         
-        # Build UI in correct order: title → info → pegs → controls
         self.build_title()
         self.build_info_panel()
         
-        # Canvas for pegs
+        
         self.canvas = tk.Canvas(self.win, bg="#0b1220", width=780, height=340, highlightthickness=0)
         self.canvas.pack(pady=15)
         
-        # Bind canvas events for drag-drop
+        
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
@@ -607,9 +594,6 @@ class GameWindow:
         y = (screen_height - window_height) // 2
         self.win.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-    # -------------------------------
-    #  GAME TITLE
-    # -------------------------------
     def build_title(self):
         """Build game title display."""
         title_frame = tk.Frame(self.win, bg=BG_COLOR)
@@ -627,9 +611,6 @@ class GameWindow:
         separator = tk.Label(title_frame, text="═" * 50, bg=BG_COLOR, fg=ACCENT)
         separator.pack()
 
-    # -------------------------------
-    #  PLAYER INFO AND TIMER
-    # -------------------------------
     def build_info_panel(self):
         """Build player information and timer display."""
         info_frame = tk.Frame(self.win, bg=BG_COLOR)
@@ -681,9 +662,7 @@ class GameWindow:
         )
         self.reset_btn.pack(side="left", padx=15)
 
-    # -------------------------------
-    #  MOVE CONTROLS
-    # -------------------------------
+
     def build_controls(self):
         """Build game control buttons and move selection."""
         frame = tk.Frame(self.win, bg=BG_COLOR)
@@ -718,7 +697,7 @@ class GameWindow:
         tk.Button(frame, text="🔙 Back to Menu", bg="#B91C1C", fg="white", font=("Helvetica", 11, "bold"),
               command=self.back_to_menu, relief="raised", bd=2, width=12, height=1).pack(side="left", padx=8)
         
-        # Stats below controls
+        #stats below controls
         stats_frame = tk.Frame(self.win, bg=BG_COLOR)
         stats_frame.pack(pady=10)
 
@@ -729,7 +708,7 @@ class GameWindow:
         self.opt_label = tk.Label(stats_frame, text=f"✨ Optimal: {opt}", fg=ACCENT, bg=BG_COLOR, font=("Helvetica", 13, "bold"))
         self.opt_label.pack(side="left", padx=20)
         
-        # Sequence input below stats
+        #sequence input below stats
         seq_frame = tk.Frame(self.win, bg=BG_COLOR)
         seq_frame.pack(pady=15)
         
@@ -776,9 +755,7 @@ class GameWindow:
         self.hint_index = 0
         self.pause_btn.config(text="⏸️  Pause", bg="#FFA500")
 
-    # -------------------------------
-    #  DRAW DISKS + PEGS
-    # -------------------------------
+
     def draw_pegs(self):
         """Draw the pegs and disks on the canvas."""
         self.canvas.delete("all")
@@ -792,20 +769,16 @@ class GameWindow:
             x = gap * (i + 1)
             peg_xs.append(x)
             self.peg_positions[i] = {'x': x, 'disks': []}
-
-            # Draw peg stand
+        
             self.canvas.create_rectangle(x-5, 290, x+5, 60, fill="#1e293b", outline="")
 
-            # Draw peg base
             self.canvas.create_rectangle(x-120, 310, x+120, 330, fill="#142030", outline="")
             
-            # Draw peg label
             self.canvas.create_text(x, 345, text=chr(ord("A") + i), fill=ACCENT, font=("Helvetica", 12, "bold"))
 
         max_w = 180
         min_w = 40
 
-        # Semi-saturated color palette for disks (outstanding but balanced)
         DISK_COLORS = [
             "#E57373", "#64B5F6", "#81C784", "#FFD54F", "#BA68C8",
             "#4DD0E1", "#FF8A65", "#F06292", "#9CCC65", "#4FC3F7",
@@ -820,13 +793,11 @@ class GameWindow:
                 y = 310 - (level+1)*25
                 color = DISK_COLORS[(disk-1) % len(DISK_COLORS)]
                 
-                # Create disk rectangle with tag for drag-drop
                 rect_id = self.canvas.create_rectangle(
                     x-w//2, y-18, x+w//2, y, 
                     fill=color, outline="#333333", width=2
                 )
                 
-                # Add disk number in center
                 self.canvas.create_text(
                     x, y-9, 
                     text=str(disk), 
@@ -834,7 +805,6 @@ class GameWindow:
                     font=("Helvetica", 12, "bold")
                 )
                 
-                # Tag disk with position info
                 self.canvas.tag_bind(rect_id, "<Button-1>", lambda e, d=disk, p=p_idx: self.on_disk_click(e, d, p))
                 self.canvas.itemconfig(rect_id, tags=(f"disk_{disk}", f"peg_{p_idx}"))
                 
@@ -853,14 +823,13 @@ class GameWindow:
     
     def on_canvas_click(self, event):
         """Handle canvas click."""
-        pass  # Handled by disk-specific binding
+        pass 
     
     def on_canvas_drag(self, event):
         """Handle canvas drag motion with visual feedback."""
         if not self.dragging or self.dragged_disk is None:
             return
         
-        # Remove old ghost if exists
         if self.drag_ghost_id:
             self.canvas.delete(self.drag_ghost_id)
             self.drag_ghost_id = None
@@ -869,7 +838,6 @@ class GameWindow:
             self.canvas.delete(self.highlight_id)
             self.highlight_id = None
         
-        # Draw semi-transparent ghost disk at cursor
         width = 780
         gap = width // (self.pegs + 1)
         max_w = 180
@@ -885,7 +853,6 @@ class GameWindow:
         ]
         color = DISK_COLORS[(self.dragged_disk_size-1) % len(DISK_COLORS)]
         
-        # Draw ghost disk following cursor
         ghost_y = event.y
         self.drag_ghost_id = self.canvas.create_rectangle(
             event.x - disk_w//2, ghost_y - 18,
@@ -893,12 +860,11 @@ class GameWindow:
             fill=color, outline="#00FF00", width=3
         )
         
-        # Find and highlight target peg
         for i in range(self.pegs):
             peg_x = gap * (i + 1)
             if peg_x - 100 <= event.x <= peg_x + 100:
                 self.target_peg = i
-                # Highlight the target peg base
+            
                 self.highlight_id = self.canvas.create_rectangle(
                     peg_x - 120, 310, peg_x + 120, 330,
                     fill="#00FF00", outline="#00FF00", width=2
@@ -912,7 +878,7 @@ class GameWindow:
     
     def on_canvas_release(self, event):
         """Handle canvas release to drop disk."""
-        # Clean up ghost visuals
+        
         if self.drag_ghost_id:
             self.canvas.delete(self.drag_ghost_id)
             self.drag_ghost_id = None
@@ -926,14 +892,14 @@ class GameWindow:
             self.canvas.config(cursor="arrow")
             return
         
-        # Find which peg the mouse is over
+        
         width = 780
         gap = width // (self.pegs + 1)
         to_peg = None
         
         for i in range(self.pegs):
             x = gap * (i + 1)
-            # Check if mouse is within peg x-range (with margin)
+            
             if x - 100 <= event.x <= x + 100:
                 to_peg = i
                 break
@@ -955,9 +921,7 @@ class GameWindow:
         else:
             self.draw_pegs()
 
-    # -------------------------------
-    #  HINT
-    # -------------------------------
+    
     def show_hint(self):
         """Show the next move in the optimal solution sequence."""
         moves, _ = timed_recursive_solution(self.disks, self.pegs)
@@ -992,9 +956,7 @@ class GameWindow:
         
         self.hint_index += 1
 
-    # -------------------------------
-    #  USER MOVE
-    # -------------------------------
+    
     def do_move(self):
         """Execute a user move with validation."""
         try:
@@ -1016,9 +978,7 @@ class GameWindow:
         except Exception as e:
             messagebox.showerror("Error", f"An unexpected error occurred: {e}", parent=self.win)
 
-    # -------------------------------
-    #  AUTO SOLVE
-    # -------------------------------
+   
     def auto_solve(self):
         """Automatically solve the puzzle using the optimal algorithm."""
         confirm_text = f"Solve the puzzle in {optimal_moves_count(self.disks, self.pegs)} optimal moves?\n(This will overwrite your current progress)"
@@ -1027,7 +987,6 @@ class GameWindow:
 
         moves, _ = timed_recursive_solution(self.disks, self.pegs)
 
-        # Animate moves
         for a, b in moves:
             # Check if paused and wait
             while self.paused:
@@ -1049,9 +1008,7 @@ class GameWindow:
         if self.manager.is_solved():
             self.handle_win()
 
-    # -------------------------------
-    #  EXECUTE SEQUENCE
-    # -------------------------------
+    
     def execute_sequence(self):
         """Execute a user-entered sequence of moves."""
         seq_text = self.seq_var.get().strip()
@@ -1059,7 +1016,6 @@ class GameWindow:
             messagebox.showwarning("Empty Sequence", "Please enter a move sequence.", parent=self.win)
             return
         
-        # Parse the sequence
         moves = []
         parts = [p.strip() for p in seq_text.replace(',', ' ').split() if p.strip()]
         
@@ -1083,12 +1039,11 @@ class GameWindow:
             messagebox.showwarning("Empty Sequence", "No valid moves found.", parent=self.win)
             return
         
-        # Confirm execution
         confirm_text = f"Execute {len(moves)} moves?\n(This will apply the moves to current game state)"
         if not messagebox.askyesno("Execute Sequence", confirm_text, parent=self.win):
             return
         
-        # Execute moves with animation
+    
         for a, b in moves:
             # Check if paused and wait
             while self.paused:
@@ -1114,38 +1069,89 @@ class GameWindow:
         if self.manager.is_solved():
             self.handle_win()
 
-    # -------------------------------
-    #  WIN HANDLING
-    # -------------------------------
+    
     def handle_win(self):
         """Handle winning the game."""
         elapsed = self.manager.finish()
-        _, algo_time = timed_recursive_solution(self.disks, self.pegs)
+
+        from algorithms import timed_iterative_solution
+        
+        optimal_moves_recursive, recursive_time = timed_recursive_solution(self.disks, self.pegs)
+        optimal_moves_iterative, iterative_time = timed_iterative_solution(self.disks, self.pegs)
+        
         optimal = optimal_moves_count(self.disks, self.pegs)
 
+        user_sequence = self.manager.get_move_sequence()
+
+        actual_sequence = format_moves(optimal_moves_recursive)
+
+        is_correct = 1 if self.manager.is_solved() else 0
+
+        moves = self.manager.moves_count or 1
+        efficiency = (optimal / moves) if moves > 0 else 0.0
+        if self.manager.moves_count == optimal:
+            efficiency_note = f"{self.pegs}-peg solution (Perfect!)"
+        elif self.manager.moves_count <= optimal * 1.2:
+            efficiency_note = f"{self.pegs}-peg solution (Excellent)"
+        elif self.manager.moves_count <= optimal * 1.5:
+            efficiency_note = f"{self.pegs}-peg solution (Good)"
+        else:
+            efficiency_note = f"{self.pegs}-peg solution"
+        
         try:
-            solved = int(self.manager.is_solved())
-            moves = self.manager.moves_count or 0
-            efficiency = (optimal / moves) if solved and moves > 0 else 0.0
+            
+            database.insert_user(self.player)
+            
+            # Insert result with BOTH algorithm times
             database.insert_result(
                 self.player, self.pegs, self.disks,
-                moves, optimal,
-                elapsed, algo_time,
-                solved=solved,
-                efficiency=efficiency
+                self.manager.moves_count, optimal,
+                elapsed, recursive_time, iterative_time,  
+                solved=1,
+                efficiency=efficiency,
+                user_moves=user_sequence,
+                actual_moves=actual_sequence,
+                is_correct=is_correct,
+                efficiency_note=efficiency_note
+            )
+            
+            # Insert algorithm performance data for BOTH algorithms
+            database.insert_algorithm_performance(
+                algorithm_name=f"Recursive_{self.pegs}peg",
+                pegs=self.pegs,
+                disks=self.disks,
+                moves_count=optimal,
+                execution_time=recursive_time,
+                move_sequence=actual_sequence,
+                is_optimal=1,
+                complexity_class=f"O(2^n)" if self.pegs == 3 else "Frame-Stewart"
+            )
+            
+            database.insert_algorithm_performance(
+                algorithm_name=f"Iterative_{self.pegs}peg",
+                pegs=self.pegs,
+                disks=self.disks,
+                moves_count=len(optimal_moves_iterative),
+                execution_time=iterative_time,
+                move_sequence=format_moves(optimal_moves_iterative),
+                is_optimal=1,
+                complexity_class=f"O(2^n)-Iterative" if self.pegs == 3 else "Frame-Stewart-Iterative"
             )
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not save result: {e}", parent=self.win)
 
-        # Calculate performance
-        efficiency = (optimal / self.manager.moves_count) * 100
+        # Calculate performance percentage
+        efficiency_pct = efficiency * 100
         message = (
             f"🎉 SOLVED! 🎉\n"
             f"{'═' * 40}\n"
             f"👤 Player: {self.player}\n"
             f"🎮 Moves: {self.manager.moves_count} / {optimal} (optimal)\n"
-            f"⭐ Efficiency: {efficiency:.1f}%\n"
-            f"⏱️  Time: {elapsed:.2f} seconds"
+            f"⭐ Efficiency: {efficiency_pct:.1f}%\n"
+            f"⏱️  Time: {elapsed:.2f} seconds\n"
+            f"🔄 Recursive Time: {recursive_time*1000:.3f}ms\n"
+            f"🔁 Iterative Time: {iterative_time*1000:.3f}ms\n"
+            f"📝 {efficiency_note}"
         )
 
         messagebox.showinfo("Puzzle Solved", message, parent=self.win)
@@ -1163,7 +1169,7 @@ class GameWindow:
         if not messagebox.askyesno("Confirm", "Return to main menu? Unsaved progress will be lost.", parent=self.win):
             return
 
-        # Clear game UI and return
+        
         for w in self.win.winfo_children():
             w.destroy()
         self.win.title("Tower of Hanoi")
@@ -1171,31 +1177,84 @@ class GameWindow:
         if self.menu:
             self.menu.build_ui()
 
-    # -------------------------------
-    #  SAVE & EXIT
-    # -------------------------------
     def save_and_exit(self):
         """Save progress and return to main menu."""
         if messagebox.askyesno("Save & Quit", "Save your progress and return to the main menu?", parent=self.win):
             elapsed = self.manager.finish() or 0.0
-            _, algo_time = timed_recursive_solution(self.disks, self.pegs)
+            
+            
+            from algorithms import timed_iterative_solution  
+            
+            optimal_moves_recursive, recursive_time = timed_recursive_solution(self.disks, self.pegs)
+            optimal_moves_iterative, iterative_time = timed_iterative_solution(self.disks, self.pegs)
+            
             optimal = optimal_moves_count(self.disks, self.pegs)
+            
+            # Get user's move sequence
+            user_sequence = self.manager.get_move_sequence()
+            
+            # Get optimal move sequence
+            actual_sequence = format_moves(optimal_moves_recursive)
+            
+            # Check if solution is correct
+            solved = 1 if self.manager.is_solved() else 0
+            is_correct = solved
+            
+            #calculate efficiency
+            moves = self.manager.moves_count or 1
+            efficiency = (optimal / moves) if moves > 0 else 0.0
+            
+            if solved:
+                if self.manager.moves_count == optimal:
+                    efficiency_note = f"{self.pegs}-peg solution (Perfect!)"
+                else:
+                    efficiency_note = f"{self.pegs}-peg solution (Complete)"
+            else:
+                efficiency_note = f"{self.pegs}-peg solution (Incomplete)"
 
             try:
-                solved = int(self.manager.is_solved())
-                moves = self.manager.moves_count or 0
-                efficiency = (optimal / moves) if solved and moves > 0 else 0.0
+               
+                database.insert_user(self.player)
+                
+                
                 database.insert_result(
                     self.player, self.pegs, self.disks,
-                    moves, optimal,
-                    elapsed, algo_time,
+                    self.manager.moves_count, optimal,
+                    elapsed, recursive_time, iterative_time,  
                     solved=solved,
-                    efficiency=efficiency
+                    efficiency=efficiency,
+                    user_moves=user_sequence,
+                    actual_moves=actual_sequence,
+                    is_correct=is_correct,
+                    efficiency_note=efficiency_note
+                )
+                
+                
+                database.insert_algorithm_performance(
+                    algorithm_name=f"Recursive_{self.pegs}peg",
+                    pegs=self.pegs,
+                    disks=self.disks,
+                    moves_count=optimal,
+                    execution_time=recursive_time,
+                    move_sequence=actual_sequence,
+                    is_optimal=1,
+                    complexity_class=f"O(2^n)" if self.pegs == 3 else "Frame-Stewart"
+                )
+                
+                database.insert_algorithm_performance(
+                    algorithm_name=f"Iterative_{self.pegs}peg",
+                    pegs=self.pegs,
+                    disks=self.disks,
+                    moves_count=len(optimal_moves_iterative),
+                    execution_time=iterative_time,
+                    move_sequence=format_moves(optimal_moves_iterative),
+                    is_optimal=1,
+                    complexity_class=f"O(2^n)-Iterative" if self.pegs == 3 else "Frame-Stewart-Iterative"
                 )
             except Exception as e:
                 messagebox.showerror("Database Error", f"Could not save result: {e}", parent=self.win)
 
-            # Return to main menu
+            
             for w in self.win.winfo_children():
                 w.destroy()
             self.win.title("Tower of Hanoi")
@@ -1203,9 +1262,7 @@ class GameWindow:
             if self.menu:
                 self.menu.build_ui()
 
-    # -------------------------------
-    #  TIMER
-    # -------------------------------
+
     def update_timer(self):
         """Update the game timer every 200ms."""
         if self.manager.start_time and not self.manager.end_time and not self.paused:

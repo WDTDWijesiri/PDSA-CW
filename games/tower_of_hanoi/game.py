@@ -21,8 +21,6 @@ class GameManager:
         self.pegs_count = pegs
         self.disks = disks
 
-        # Initialize pegs: A (index 0) starts with all disks, B and C/D are empty
-        # Disks are stored in descending order (largest at index 0)
         self.pegs = [list(range(disks, 0, -1))] + [[] for _ in range(pegs - 1)]
 
         self.move_history = []
@@ -79,4 +77,13 @@ class GameManager:
             self.end_time = time.perf_counter()
             return self.end_time - self.start_time
         return 0
-
+    
+    def get_move_sequence(self):
+        """
+        Convert move history to string format.
+        
+        Returns:
+            str: Move sequence like "A->B, B->C, C->D"
+        """
+        peg_names = ['A', 'B', 'C', 'D', 'E']
+        return ', '.join([f"{peg_names[frm]}->{peg_names[to]}" for frm, to in self.move_history])
