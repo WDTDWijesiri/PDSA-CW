@@ -22,9 +22,10 @@ DB_PATH = Path("snake_ladder_problem.db")
 ASSETS_DIR = Path(__file__).parent / "assets"
 
 
-# ----------------------------------------------------------------------
+
 #  DB LAYER
-# ----------------------------------------------------------------------
+
+
 class ProblemGameDB:
     """SQLite wrapper for the Snake and Ladder Game Problem."""
 
@@ -104,9 +105,9 @@ class ProblemGameDB:
         self.conn.close()
 
 
-# ----------------------------------------------------------------------
+
 #  MAIN GAME
-# ----------------------------------------------------------------------
+
 class SnakeAndLadderProblemGame:
     """
     Snake and Ladder Game Problem, cozy style with responsive layout.
@@ -166,9 +167,9 @@ class SnakeAndLadderProblemGame:
 
         self.build_main_menu()
 
-    # ------------------------------------------------------------------
+    
     #  Responsive helpers
-    # ------------------------------------------------------------------
+    
     def on_resize(self, event: tk.Event):
         if event.width <= 1 or event.height <= 1:
             return
@@ -187,9 +188,9 @@ class SnakeAndLadderProblemGame:
         ch = max(min(ch, 1000), 750)
         return cw, ch
 
-    # ------------------------------------------------------------------
+    
     #  Images
-    # ------------------------------------------------------------------
+    
     def load_images(self):
         if not PIL_AVAILABLE:
             print("PIL not available; running without image assets.")
@@ -229,9 +230,9 @@ class SnakeAndLadderProblemGame:
             self._tk_img_cache[key] = ImageTk.PhotoImage(img)
         return self._tk_img_cache[key]
 
-    # ------------------------------------------------------------------
+    
     #  Common helpers
-    # ------------------------------------------------------------------
+    
     def clear_window(self):
         for w in self.root.winfo_children():
             w.destroy()
@@ -254,9 +255,9 @@ class SnakeAndLadderProblemGame:
 
         step()
 
-    # ------------------------------------------------------------------
+    
     #  UI: Main menu
-    # ------------------------------------------------------------------
+    
     def build_main_menu(self):
         self.clear_window()
 
@@ -560,9 +561,9 @@ class SnakeAndLadderProblemGame:
             fg="#2f4f2f",
         ).pack(side=tk.LEFT, padx=20)
 
-    # ------------------------------------------------------------------
+    
     #  Board generation & algorithms
-    # ------------------------------------------------------------------
+    
     def start_new_round(self):
         try:
             N = int(self.size_var.get())
@@ -725,9 +726,9 @@ class SnakeAndLadderProblemGame:
         self.min_throws_answer = bfs_ans
         self.algorithm_times = {"bfs": bfs_time, "dp": dp_time}
 
-    # ------------------------------------------------------------------
+    
     #  UI for one problem round
-    # ------------------------------------------------------------------
+    
     def build_round_ui(self):
         self.clear_window()
         self._snake_wiggle_phase = 0
@@ -746,7 +747,8 @@ class SnakeAndLadderProblemGame:
         main = tk.Frame(top_frame, bg=self.color_sky)
         main.pack(fill=tk.BOTH, expand=True)
 
-        # LEFT PANEL ----------------------------------------------------
+        # LEFT PANEL
+
         left_outer = tk.Frame(
             main,
             bg=self.color_wood_dark,
@@ -925,7 +927,8 @@ class SnakeAndLadderProblemGame:
             fg="#3b7bbf",
         ).pack(pady=(0, 2))
 
-        # RIGHT: HUGE BOARD ---------------------------------------------
+        # RIGHT: HUGE BOARD 
+
         board_outer = tk.Frame(
             main,
             bg=self.color_wood_dark,
@@ -1163,9 +1166,9 @@ class SnakeAndLadderProblemGame:
 
         step()
 
-    # ------------------------------------------------------------------
+    
     #  Answer / result
-    # ------------------------------------------------------------------
+    
     def generate_multiple_choice(self, correct_answer: int) -> list[int]:
         if correct_answer is None or correct_answer <= 0:
             return [3, 4, 5]
@@ -1332,9 +1335,9 @@ class SnakeAndLadderProblemGame:
             highlightbackground="#8b5a2b",
         )
 
-    # ------------------------------------------------------------------
+    
     #  Stats screen
-    # ------------------------------------------------------------------
+    
     def show_algorithm_stats(self):
         stats = self.db.fetch_stats_by_board_size()
         win = tk.Toplevel(self.root)
@@ -1454,9 +1457,9 @@ class SnakeAndLadderProblemGame:
             highlightbackground="#8b5a2b",
         )
 
-    # ------------------------------------------------------------------
+    
     #  NEW: Chart using DB data (Part I integration)
-    # ------------------------------------------------------------------
+    
     def show_algorithm_chart(self):
         """
         Use matplotlib to create:
@@ -1607,9 +1610,9 @@ class SnakeAndLadderProblemGame:
         print("3. Execution time tends to increase with board size")
         print("4. DP often shows more variability in execution time")
 
-    # ------------------------------------------------------------------
+    
     #  NEW: Complexity analysis report (Part II integration)
-    # ------------------------------------------------------------------
+    
     def save_complexity_analysis_report(self):
         """
         Generate a detailed complexity and empirical analysis report
@@ -1761,9 +1764,9 @@ class SnakeAndLadderProblemGame:
             )
 
 
-# ----------------------------------------------------------------------
+
 #  UNIT TESTS
-# ----------------------------------------------------------------------
+
 class TestSnakeAndLadderProblemAlgorithms(unittest.TestCase):
     def setUp(self):
         self.obj = SnakeAndLadderProblemGame.__new__(
