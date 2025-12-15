@@ -46,11 +46,11 @@ def create_button(text, file):
     )
 
 # Buttons
-btn1 = create_button("🐍 Snake and Ladder", "snake.py")
-btn2 = create_button("🚦 Traffic Simulation", "traffic.py")
-btn3 = create_button("🧭 Traveling Salesman Problem", "tsp.py")
-btn4 = create_button("🗼 Tower of Hanoi", "th.py")
-btn5 = create_button("♟ Eight Queens Puzzle", "queen.py")
+btn1 = create_button("🐍 Snake and Ladder", "games/snake_ladder/SnakeAndLadder.py")
+btn2 = create_button("🚦 Traffic Simulation", "games/traffic_simulation/taraffic.py")
+btn3 = create_button("🧭 Traveling Salesman Problem", "games/traveling_selesman/traveling.py")
+btn4 = create_button("🗼 Tower of Hanoi", "games/tower_of_hanoi/main.py")
+btn5 = create_button("♟ Eight Queens Puzzle", "games/queen puzzul/queen.py")
 
 btn1.pack(pady=10)
 btn2.pack(pady=10)
