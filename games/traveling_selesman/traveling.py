@@ -11,6 +11,12 @@ import winsound
 from enum import Enum
 import json
 import itertools
+import matplotlib
+matplotlib.use('TkAgg')  # Use TkAgg backend for tkinter compatibility
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
+import pandas as pd
 
 class Difficulty(Enum):
     EASY = "Easy"
@@ -319,7 +325,7 @@ class TravelingSalesmanGame:
         self.setup_main_menu()
     
     def init_database(self):
-        """Initialize SQLite database with all required tables"""
+        #Initialize SQLite database with all required tables
         try:
             self.db_path = Path("tsp_game.db")
             self.conn = sqlite3.connect(self.db_path)
@@ -402,7 +408,7 @@ class TravelingSalesmanGame:
             widget.destroy()
     
     def generate_cities(self):
-        """Generate random cities with distances between 50-100 km"""
+        #Generate random cities with distances between 50-100 km
         try:
             self.cities = []
             
@@ -476,7 +482,7 @@ class TravelingSalesmanGame:
             messagebox.showerror("Error", f"Failed to generate cities: {e}")
     
     def calculate_distance(self, route):
-        """Calculate total distance for a given route using distance matrix"""
+        #Calculate total distance for a given route using distance matrix
         try:
             total = 0
             for i in range(len(route) - 1):
@@ -546,7 +552,7 @@ class TravelingSalesmanGame:
             messagebox.showerror("Algorithm Error", f"Failed to run algorithms: {e}")
     
     def play_sound(self, sound_type):
-        """Play sound effects with error handling"""
+        #Play sound effects with error handling
         if not self.sound_enabled:
             return
             
@@ -617,6 +623,7 @@ class TravelingSalesmanGame:
         menu_buttons = [
             ("🎮 New Game", self.setup_player_selection),
             ("📊 Algorithm Comparison", self.show_algorithm_comparison),
+            ("📈 Algorithm Performance Chart", self.show_algorithm_performance_chart),
             ("❓ How to Play", self.show_instructions),
             ("🏆 Player Stats", self.show_player_stats),
             ("📈 Leaderboard", self.show_leaderboard),
@@ -664,12 +671,12 @@ class TravelingSalesmanGame:
         
         # Version info
         tk.Label(
-            scrollable_frame, text="Version 2.0 | Three Algorithms Edition | Play Phase Added",
+            scrollable_frame, text="Version 2.0 | Three Algorithms Edition | Performance Chart Added",
             font=("Arial", 10), bg='#1e3d59', fg='#7f8c8d'
         ).pack(side=tk.BOTTOM, pady=20)
     
     def animate_title(self):
-        """Animate title color"""
+        #Animate title color#
         try:
             colors = ['#4ECDC4', '#45B7D1', '#FF6B6B', '#96CEB4', '#FFEAA7']
             self.title_label.config(fg=colors[self.title_color_index])
@@ -682,7 +689,7 @@ class TravelingSalesmanGame:
             self.title_animation_id = None
     
     def show_instructions(self):
-        """Show game instructions"""
+        #Show game instructions
         instructions = tk.Toplevel(self.root)
         instructions.title("How to Play")
         instructions.geometry("700x700")
@@ -771,7 +778,7 @@ class TravelingSalesmanGame:
         ).pack(pady=20)
     
     def show_algorithm_comparison(self):
-        """Show algorithm comparison from database"""
+        #Show algorithm comparison from database
         try:
             # Fetch algorithm performance data
             self.cursor.execute('''
@@ -858,6 +865,600 @@ class TravelingSalesmanGame:
             ).pack(pady=20)
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to fetch algorithm data: {e}")
+    
+    def show_algorithm_performance_chart(self):
+        """Show chart of algorithm performance over 15 game rounds"""
+        try:
+            # Fetch algorithm performance data for last 15 games
+            self.cursor.execute('''
+                SELECT 
+                    gh.game_date,
+                    ap.algorithm_name,
+                    ap.execution_time_ms,
+                    ap.distance
+                FROM algorithm_performance ap
+                JOIN game_history gh ON ap.game_id = gh.game_id
+                WHERE ap.algorithm_name IN ('brute_force', 'nearest_neighbor', 'genetic_algorithm')
+                ORDER BY gh.game_date DESC
+                LIMIT 45  -- 15 games * 3 algorithms
+            ''')
+            
+            results = self.cursor.fetchall()
+            
+            if not results:
+                messagebox.showinfo("No Data", "No algorithm performance data available yet.")
+                return
+            
+            # Process data
+            data = {}
+            dates = []
+            
+            for game_date, algorithm, time_ms, distance in results:
+                date_str = datetime.strptime(game_date, '%Y-%m-%d %H:%M:%S').strftime('%m-%d %H:%M')
+                
+                if date_str not in dates:
+                    dates.append(date_str)
+                
+                if algorithm not in data:
+                    data[algorithm] = {'times': [], 'distances': []}
+                
+                data[algorithm]['times'].append(time_ms)
+                data[algorithm]['distances'].append(distance)
+            
+            # Keep only last 15 entries (most recent games)
+            dates = dates[-15:]
+            for algo in data:
+                data[algo]['times'] = data[algo]['times'][-15:]
+                data[algo]['distances'] = data[algo]['distances'][-15:]
+            
+            # Create chart window
+            chart_window = tk.Toplevel(self.root)
+            chart_window.title("Algorithm Performance Chart (15 Rounds)")
+            chart_window.geometry("1200x800")
+            chart_window.configure(bg='#1e3d59')
+            
+            # Center the window
+            chart_window.update_idletasks()
+            width = chart_window.winfo_width()
+            height = chart_window.winfo_height()
+            x = (self.screen_width - width) // 2
+            y = (self.screen_height - height) // 2
+            chart_window.geometry(f"{width}x{height}+{x}+{y}")
+            
+            # Title
+            tk.Label(
+                chart_window, text="📊 Algorithm Performance Chart",
+                font=("Impact", 24, "bold"), bg='#1e3d59', fg='#4ECDC4'
+            ).pack(pady=20)
+            
+            # Create notebook for multiple charts
+            notebook = ttk.Notebook(chart_window)
+            notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Tab 1: Execution Time Chart
+            time_frame = tk.Frame(notebook, bg='white')
+            notebook.add(time_frame, text="⏱️ Execution Time")
+            
+            # Create figure for execution time
+            fig_time, ax_time = plt.subplots(figsize=(10, 5))
+            fig_time.patch.set_facecolor('#2c3e50')
+            ax_time.set_facecolor('#ecf0f1')
+            
+            # Plot data for each algorithm
+            colors = {
+                'brute_force': '#E74C3C',
+                'nearest_neighbor': '#3498DB',
+                'genetic_algorithm': '#27AE60'
+            }
+            
+            algorithm_names = {
+                'brute_force': 'Brute Force',
+                'nearest_neighbor': 'Nearest Neighbor',
+                'genetic_algorithm': 'Genetic Algorithm'
+            }
+            
+            x = np.arange(len(dates))
+            width = 0.25
+            
+            for i, (algo, values) in enumerate(data.items()):
+                if values['times']:
+                    ax_time.plot(x, values['times'], 
+                               label=algorithm_names[algo], 
+                               color=colors[algo], 
+                               linewidth=3,
+                               marker='o',
+                               markersize=8)
+            
+            ax_time.set_xlabel('Game Round', fontsize=12, fontweight='bold')
+            ax_time.set_ylabel('Execution Time (ms)', fontsize=12, fontweight='bold')
+            ax_time.set_title('Algorithm Execution Time Over 15 Rounds', fontsize=14, fontweight='bold', pad=20)
+            ax_time.set_xticks(x)
+            ax_time.set_xticklabels(dates, rotation=45, ha='right')
+            ax_time.legend()
+            ax_time.grid(True, alpha=0.3)
+            
+            # Embed chart in tkinter
+            canvas_time = FigureCanvasTkAgg(fig_time, master=time_frame)
+            canvas_time.draw()
+            canvas_time.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Tab 2: Distance Comparison Chart
+            distance_frame = tk.Frame(notebook, bg='white')
+            notebook.add(distance_frame, text="📏 Distance Comparison")
+            
+            # Create figure for distances
+            fig_dist, ax_dist = plt.subplots(figsize=(10, 5))
+            fig_dist.patch.set_facecolor('#2c3e50')
+            ax_dist.set_facecolor('#ecf0f1')
+            
+            # Bar chart for average distances
+            algorithms = list(data.keys())
+            avg_distances = []
+            std_distances = []
+            
+            for algo in algorithms:
+                if data[algo]['distances']:
+                    distances = data[algo]['distances']
+                    avg_distances.append(np.mean(distances))
+                    std_distances.append(np.std(distances))
+            
+            # Create bar chart
+            x_pos = np.arange(len(algorithms))
+            bars = ax_dist.bar(x_pos, avg_distances, 
+                             yerr=std_distances,
+                             capsize=10,
+                             color=[colors[algo] for algo in algorithms],
+                             alpha=0.8)
+            
+            # Add value labels on bars
+            for i, (bar, avg) in enumerate(zip(bars, avg_distances)):
+                height = bar.get_height()
+                ax_dist.text(bar.get_x() + bar.get_width()/2., height + 5,
+                           f'{avg:.1f} km', ha='center', va='bottom',
+                           fontweight='bold')
+            
+            ax_dist.set_xlabel('Algorithm', fontsize=12, fontweight='bold')
+            ax_dist.set_ylabel('Average Distance (km)', fontsize=12, fontweight='bold')
+            ax_dist.set_title('Average Route Distance by Algorithm', fontsize=14, fontweight='bold', pad=20)
+            ax_dist.set_xticks(x_pos)
+            ax_dist.set_xticklabels([algorithm_names[algo] for algo in algorithms])
+            ax_dist.grid(True, alpha=0.3, axis='y')
+            
+            # Embed chart in tkinter
+            canvas_dist = FigureCanvasTkAgg(fig_dist, master=distance_frame)
+            canvas_dist.draw()
+            canvas_dist.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Tab 3: Performance Summary Table
+            table_frame = tk.Frame(notebook, bg='#2c3e50')
+            notebook.add(table_frame, text="📋 Performance Summary")
+            
+            # Create performance summary
+            summary_text = "📊 PERFORMANCE SUMMARY (Last 15 Rounds)\n\n"
+            summary_text += "=" * 60 + "\n\n"
+            
+            for algo in algorithms:
+                if data[algo]['times'] and data[algo]['distances']:
+                    times = data[algo]['times']
+                    distances = data[algo]['distances']
+                    
+                    summary_text += f"🔹 {algorithm_names[algo].upper()}:\n"
+                    summary_text += f"   • Avg Time: {np.mean(times):.2f} ms\n"
+                    summary_text += f"   • Avg Distance: {np.mean(distances):.2f} km\n"
+                    summary_text += f"   • Best Distance: {min(distances):.2f} km\n"
+                    summary_text += f"   • Worst Distance: {max(distances):.2f} km\n"
+                    summary_text += f"   • Success Rate: {100 if all(t > 0 for t in times) else 0}%\n\n"
+            
+            # Add comparison analysis
+            summary_text += "=" * 60 + "\n"
+            summary_text += "📈 COMPARATIVE ANALYSIS:\n\n"
+            
+            # Find best algorithm for time and distance
+            if data:
+                # Find fastest algorithm
+                avg_times = {algo: np.mean(data[algo]['times']) for algo in algorithms if data[algo]['times']}
+                fastest_algo = min(avg_times, key=avg_times.get) if avg_times else None
+                
+                # Find most efficient algorithm (shortest distance)
+                avg_dists = {algo: np.mean(data[algo]['distances']) for algo in algorithms if data[algo]['distances']}
+                efficient_algo = min(avg_dists, key=avg_dists.get) if avg_dists else None
+                
+                if fastest_algo:
+                    summary_text += f"• ⚡ Fastest Algorithm: {algorithm_names[fastest_algo]}\n"
+                
+                if efficient_algo:
+                    summary_text += f"• 🎯 Most Efficient: {algorithm_names[efficient_algo]}\n"
+                
+                # Calculate time savings
+                if fastest_algo and efficient_algo and fastest_algo != efficient_algo:
+                    fastest_time = avg_times[fastest_algo]
+                    efficient_time = avg_times[efficient_algo]
+                    time_diff = efficient_time - fastest_time
+                    summary_text += f"• ⏱️  Time Trade-off: {algorithm_names[efficient_algo]} is {time_diff:.1f}ms slower but more accurate\n"
+            
+            # Add recommendations
+            summary_text += "\n" + "=" * 60 + "\n"
+            summary_text += "💡 RECOMMENDATIONS:\n\n"
+            summary_text += "• For small cities (≤8): Use Brute Force for optimal solution\n"
+            summary_text += "• For speed: Use Nearest Neighbor (fastest)\n"
+            summary_text += "• For balance: Use Genetic Algorithm (good speed & accuracy)\n"
+            summary_text += "• For learning: Compare all three in Play Phase\n"
+            
+            # Create text widget for summary
+            text_widget = tk.Text(
+                table_frame, wrap=tk.WORD, bg='#2c3e50', fg='white',
+                font=("Courier New", 11), padx=15, pady=15, relief=tk.FLAT
+            )
+            text_widget.insert(tk.END, summary_text)
+            text_widget.config(state=tk.DISABLED)
+            
+            # Add scrollbar
+            scrollbar = tk.Scrollbar(table_frame, command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # Tab 4: Database Statistics
+            stats_frame = tk.Frame(notebook, bg='#2c3e50')
+            notebook.add(stats_frame, text="🗄️ Database Output")
+            
+            # Fetch database statistics
+            self.cursor.execute('''
+                SELECT 
+                    COUNT(DISTINCT game_id) as total_games,
+                    COUNT(*) as total_runs,
+                    AVG(execution_time_ms) as avg_time,
+                    AVG(distance) as avg_distance
+                FROM algorithm_performance
+            ''')
+            
+            db_stats = self.cursor.fetchone()
+            
+            # Fetch per-algorithm statistics
+            self.cursor.execute('''
+                SELECT 
+                    algorithm_name,
+                    COUNT(*) as runs,
+                    AVG(execution_time_ms) as avg_time,
+                    AVG(distance) as avg_distance,
+                    MIN(distance) as best_distance,
+                    MAX(distance) as worst_distance
+                FROM algorithm_performance
+                GROUP BY algorithm_name
+                ORDER BY avg_distance
+            ''')
+            
+            algo_stats = self.cursor.fetchall()
+            
+            # Create database output display
+            db_text = "🗄️ DATABASE OUTPUT SCREENSHOT\n\n"
+            db_text += "=" * 60 + "\n\n"
+            
+            if db_stats:
+                total_games, total_runs, avg_time, avg_distance = db_stats
+                db_text += f"📈 OVERALL STATISTICS:\n"
+                db_text += f"   • Total Games: {total_games}\n"
+                db_text += f"   • Algorithm Runs: {total_runs}\n"
+                db_text += f"   • Avg Time: {avg_time:.2f} ms\n"
+                db_text += f"   • Avg Distance: {avg_distance:.2f} km\n\n"
+            
+            db_text += "=" * 60 + "\n\n"
+            db_text += "🔍 ALGORITHM-SPECIFIC STATISTICS:\n\n"
+            
+            # Create table-like display
+            header = f"{'ALGORITHM':<25} {'RUNS':<8} {'AVG TIME':<12} {'AVG DIST':<12} {'BEST':<10} {'WORST':<10}\n"
+            separator = "-" * 80 + "\n"
+            db_text += header
+            db_text += separator
+            
+            for row in algo_stats:
+                algo_name, runs, avg_time, avg_dist, best_dist, worst_dist = row
+                # Format algorithm name
+                display_name = algo_name.replace('_', ' ').title()
+                if len(display_name) > 24:
+                    display_name = display_name[:21] + "..."
+                
+                db_text += f"{display_name:<25} {runs:<8} {avg_time:<12.1f} {avg_dist:<12.1f} {best_dist:<10.1f} {worst_dist:<10.1f}\n"
+            
+            db_text += "\n" + "=" * 60 + "\n\n"
+            db_text += "📅 LAST 15 ROUNDS DETAIL:\n\n"
+            
+            # Show detailed recent data
+            self.cursor.execute('''
+                SELECT 
+                    gh.game_date,
+                    ap.algorithm_name,
+                    ap.execution_time_ms,
+                    ap.distance
+                FROM algorithm_performance ap
+                JOIN game_history gh ON ap.game_id = gh.game_id
+                ORDER BY gh.game_date DESC
+                LIMIT 15
+            ''')
+            
+            recent_runs = self.cursor.fetchall()
+            
+            for game_date, algorithm, time_ms, distance in recent_runs:
+                date_str = datetime.strptime(game_date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')
+                algo_display = algorithm.replace('_', ' ').title()[:15]
+                db_text += f"[{date_str}] {algo_display:<20} {time_ms:>8.1f}ms {distance:>8.1f}km\n"
+            
+            # Create text widget for database output
+            db_text_widget = tk.Text(
+                stats_frame, wrap=tk.WORD, bg='#2c3e50', fg='white',
+                font=("Courier New", 10), padx=15, pady=15, relief=tk.FLAT
+            )
+            db_text_widget.insert(tk.END, db_text)
+            db_text_widget.config(state=tk.DISABLED)
+            
+            # Add scrollbar
+            db_scrollbar = tk.Scrollbar(stats_frame, command=db_text_widget.yview)
+            db_text_widget.configure(yscrollcommand=db_scrollbar.set)
+            
+            db_text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            db_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # Tab 5: Export Options
+            export_frame = tk.Frame(notebook, bg='#2c3e50')
+            notebook.add(export_frame, text="💾 Export Data")
+            
+            tk.Label(
+                export_frame, text="Export Performance Data",
+                font=("Arial", 16, "bold"), bg='#2c3e50', fg='#4ECDC4'
+            ).pack(pady=20)
+            
+            # Export buttons
+            export_buttons_frame = tk.Frame(export_frame, bg='#2c3e50')
+            export_buttons_frame.pack(pady=20)
+            
+            def export_to_csv():
+                """Export data to CSV file"""
+                try:
+                    # Fetch all performance data
+                    self.cursor.execute('''
+                        SELECT 
+                            gh.game_date,
+                            ap.algorithm_name,
+                            ap.execution_time_ms,
+                            ap.distance,
+                            ap.complexity_analysis
+                        FROM algorithm_performance ap
+                        JOIN game_history gh ON ap.game_id = gh.game_id
+                        ORDER BY gh.game_date
+                    ''')
+                    
+                    all_data = self.cursor.fetchall()
+                    
+                    if all_data:
+                        # Create DataFrame
+                        df = pd.DataFrame(all_data, columns=[
+                            'game_date', 'algorithm_name', 'execution_time_ms', 
+                            'distance', 'complexity_analysis'
+                        ])
+                        
+                        # Generate filename with timestamp
+                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        filename = f"tsp_performance_{timestamp}.csv"
+                        
+                        # Export to CSV
+                        df.to_csv(filename, index=False)
+                        messagebox.showinfo("Export Successful", 
+                                          f"Data exported to:\n{filename}\n\n"
+                                          f"Total records: {len(df)}")
+                    else:
+                        messagebox.showinfo("No Data", "No performance data to export.")
+                except Exception as e:
+                    messagebox.showerror("Export Error", f"Failed to export data: {e}")
+            
+            def export_summary_report():
+                """Export summary report as text file"""
+                try:
+                    # Create comprehensive report
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    report = f"TSP ALGORITHM PERFORMANCE REPORT\n"
+                    report += f"Generated: {timestamp}\n"
+                    report += "=" * 60 + "\n\n"
+                    
+                    # Add overall statistics
+                    self.cursor.execute('''
+                        SELECT 
+                            COUNT(DISTINCT game_id) as total_games,
+                            COUNT(*) as total_runs,
+                            AVG(execution_time_ms) as avg_time,
+                            AVG(distance) as avg_distance
+                        FROM algorithm_performance
+                    ''')
+                    
+                    stats = self.cursor.fetchone()
+                    if stats:
+                        total_games, total_runs, avg_time, avg_distance = stats
+                        report += "OVERALL STATISTICS:\n"
+                        report += f"  Total Games: {total_games}\n"
+                        report += f"  Total Algorithm Runs: {total_runs}\n"
+                        report += f"  Average Time: {avg_time:.2f} ms\n"
+                        report += f"  Average Distance: {avg_distance:.2f} km\n\n"
+                    
+                    # Add algorithm comparison
+                    report += "ALGORITHM COMPARISON:\n"
+                    self.cursor.execute('''
+                        SELECT 
+                            algorithm_name,
+                            COUNT(*) as runs,
+                            AVG(execution_time_ms) as avg_time,
+                            AVG(distance) as avg_distance,
+                            MIN(execution_time_ms) as best_time,
+                            MIN(distance) as best_distance
+                        FROM algorithm_performance
+                        GROUP BY algorithm_name
+                        ORDER BY avg_distance
+                    ''')
+                    
+                    algo_comparison = self.cursor.fetchall()
+                    for algo_name, runs, avg_time, avg_dist, best_time, best_dist in algo_comparison:
+                        display_name = algo_name.replace('_', ' ').title()
+                        report += f"\n{display_name}:\n"
+                        report += f"  Runs: {runs}\n"
+                        report += f"  Avg Time: {avg_time:.2f} ms\n"
+                        report += f"  Avg Distance: {avg_dist:.2f} km\n"
+                        report += f"  Best Time: {best_time:.2f} ms\n"
+                        report += f"  Best Distance: {best_dist:.2f} km\n"
+                    
+                    # Add recommendations
+                    report += "\n" + "=" * 60 + "\n"
+                    report += "RECOMMENDATIONS:\n\n"
+                    report += "1. For optimal solutions (≤8 cities): Use Brute Force\n"
+                    report += "2. For fastest results: Use Nearest Neighbor\n"
+                    report += "3. For balance: Use Genetic Algorithm\n"
+                    report += "4. For learning: Use Play Phase to compare all algorithms\n"
+                    
+                    # Save report
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    filename = f"tsp_report_{timestamp}.txt"
+                    
+                    with open(filename, 'w') as f:
+                        f.write(report)
+                    
+                    messagebox.showinfo("Report Exported", 
+                                      f"Report saved to:\n{filename}")
+                except Exception as e:
+                    messagebox.showerror("Export Error", f"Failed to export report: {e}")
+            
+            def generate_performance_chart_image():
+                """Generate and save chart as image"""
+                try:
+                    # Create a comprehensive chart
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+                    fig.suptitle('TSP Algorithm Performance Analysis', fontsize=16, fontweight='bold')
+                    
+                    # Chart 1: Execution Time Trend
+                    ax1 = axes[0, 0]
+                    for algo, values in data.items():
+                        if values['times']:
+                            ax1.plot(values['times'], 
+                                   label=algorithm_names[algo],
+                                   color=colors[algo],
+                                   linewidth=2)
+                    ax1.set_title('Execution Time Trend')
+                    ax1.set_xlabel('Game Round')
+                    ax1.set_ylabel('Time (ms)')
+                    ax1.legend()
+                    ax1.grid(True, alpha=0.3)
+                    
+                    # Chart 2: Distance Comparison
+                    ax2 = axes[0, 1]
+                    algo_labels = [algorithm_names[algo] for algo in algorithms]
+                    avg_dists = [np.mean(data[algo]['distances']) for algo in algorithms if data[algo]['distances']]
+                    bar_colors = [colors[algo] for algo in algorithms if data[algo]['distances']]
+                    ax2.bar(range(len(avg_dists)), avg_dists, color=bar_colors, alpha=0.7)
+                    ax2.set_title('Average Distance Comparison')
+                    ax2.set_ylabel('Distance (km)')
+                    ax2.set_xticks(range(len(algo_labels)))
+                    ax2.set_xticklabels(algo_labels, rotation=45)
+                    
+                    # Chart 3: Success Rate
+                    ax3 = axes[1, 0]
+                    success_rates = []
+                    for algo in algorithms:
+                        if data[algo]['times']:
+                            success_rate = 100 if all(t > 0 for t in data[algo]['times']) else 0
+                            success_rates.append(success_rate)
+                    ax3.pie(success_rates, labels=algo_labels, 
+                           colors=bar_colors, autopct='%1.1f%%')
+                    ax3.set_title('Algorithm Success Rate')
+                    
+                    # Chart 4: Time vs Distance Scatter
+                    ax4 = axes[1, 1]
+                    for algo in algorithms:
+                        if data[algo]['times'] and data[algo]['distances']:
+                            ax4.scatter(data[algo]['times'], data[algo]['distances'],
+                                      color=colors[algo],
+                                      label=algorithm_names[algo],
+                                      alpha=0.6)
+                    ax4.set_title('Time vs Distance')
+                    ax4.set_xlabel('Time (ms)')
+                    ax4.set_ylabel('Distance (km)')
+                    ax4.legend()
+                    ax4.grid(True, alpha=0.3)
+                    
+                    plt.tight_layout()
+                    
+                    # Save image
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    filename = f"tsp_chart_{timestamp}.png"
+                    plt.savefig(filename, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    
+                    messagebox.showinfo("Chart Saved", 
+                                      f"Performance chart saved to:\n{filename}")
+                except Exception as e:
+                    messagebox.showerror("Chart Error", f"Failed to save chart: {e}")
+            
+            # Create export buttons
+            export_functions = [
+                ("📊 Export to CSV", export_to_csv),
+                ("📄 Export Report", export_summary_report),
+                ("🖼️ Save Chart as Image", generate_performance_chart_image),
+            ]
+            
+            for text, func in export_functions:
+                btn = tk.Button(
+                    export_buttons_frame, text=text, command=func,
+                    font=("Arial", 12), bg='#3498db', fg='white',
+                    padx=20, pady=10, cursor="hand2", width=25
+                )
+                btn.pack(pady=10)
+            
+            # Information text
+            info_text = "\n📝 Export Information:\n\n"
+            info_text += "• CSV Export: Full performance data in spreadsheet format\n"
+            info_text += "• Report Export: Summary report in text format\n"
+            info_text += "• Chart Export: Performance charts as PNG image\n"
+            info_text += "• Files are saved in the current directory\n"
+            
+            info_label = tk.Label(
+                export_frame, text=info_text,
+                font=("Arial", 11), bg='#2c3e50', fg='#bdc3c7',
+                justify=tk.LEFT
+            )
+            info_label.pack(pady=20)
+            
+            # Control buttons at bottom
+            button_frame = tk.Frame(chart_window, bg='#1e3d59')
+            button_frame.pack(pady=10)
+            
+            tk.Button(
+                button_frame, text="🔄 Refresh Data",
+                command=lambda: [chart_window.destroy(), self.show_algorithm_performance_chart()],
+                font=("Arial", 12), bg='#3498db', fg='white',
+                padx=20, pady=10, cursor="hand2"
+            ).pack(side=tk.LEFT, padx=5)
+            
+            tk.Button(
+                button_frame, text="📋 Copy Summary",
+                command=lambda: self.copy_to_clipboard(summary_text),
+                font=("Arial", 12), bg='#9b59b6', fg='white',
+                padx=20, pady=10, cursor="hand2"
+            ).pack(side=tk.LEFT, padx=5)
+            
+            tk.Button(
+                button_frame, text="❌ Close",
+                command=chart_window.destroy,
+                font=("Arial", 12), bg='#e74c3c', fg='white',
+                padx=20, pady=10, cursor="hand2"
+            ).pack(side=tk.LEFT, padx=5)
+            
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to display chart: {e}\n\nPlease install required packages:\npip install matplotlib numpy pandas")
+    
+    def copy_to_clipboard(self, text):
+        """Copy text to clipboard"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            messagebox.showinfo("Copied", "Summary copied to clipboard!")
+        except Exception as e:
+            messagebox.showerror("Copy Error", f"Failed to copy to clipboard: {e}")
     
     def setup_player_selection(self):
         """Show player selection screen"""
@@ -1284,9 +1885,6 @@ class TravelingSalesmanGame:
         
         # Force update of Play button state
         self.update_play_button_state()
-
-    # Remove the nested draw_cities and city_click methods from here
-    # They should remain as class methods as defined earlier
     
     def draw_cities(self):
         """Draw all cities on the canvas with improved visuals"""
@@ -2995,9 +3593,48 @@ def run_unit_tests():
     
     root.mainloop()
 
+def check_dependencies():
+    """Check and install required dependencies"""
+    required_packages = ['matplotlib', 'numpy', 'pandas']
+    missing_packages = []
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_packages.append(package)
+    
+    if missing_packages:
+        response = messagebox.askyesno(
+            "Missing Dependencies",
+            f"The following packages are required for charts:\n{', '.join(missing_packages)}\n\n"
+            f"Install now? (Requires internet connection)"
+        )
+        
+        if response:
+            try:
+                import subprocess
+                import sys
+                for package in missing_packages:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+                messagebox.showinfo("Success", "Dependencies installed successfully!")
+            except Exception as e:
+                messagebox.showerror("Installation Failed", 
+                                   f"Failed to install packages: {e}\n\n"
+                                   f"Please run manually:\n"
+                                   f"pip install {' '.join(missing_packages)}")
+                return False
+    return True
+
 def main():
     """Main function to run the game with improved window handling"""
     try:
+        # Check dependencies
+        if not check_dependencies():
+            messagebox.showwarning("Limited Features", 
+                                 "Chart features will be unavailable.\n"
+                                 "Basic game functions will still work.")
+        
         root = tk.Tk()
         
         # Create the game instance
