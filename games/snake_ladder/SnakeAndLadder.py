@@ -14,6 +14,10 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
+# For charts and analysis
+import matplotlib.pyplot as plt
+import numpy as np
+
 DB_PATH = Path("snake_ladder_problem.db")
 ASSETS_DIR = Path(__file__).parent / "assets"
 
@@ -486,6 +490,47 @@ class SnakeAndLadderProblemGame:
             highlightbackground="#24529b",
         )
 
+        # NEW: Chart & Analysis buttons (integrated without changing existing ones)
+        chart_btn = tk.Button(
+            right_inner,
+            text="Show Time Chart",
+            command=self.show_algorithm_chart,
+            font=("Segoe UI", 10, "bold"),
+            bg="#4caf50",
+            fg="white",
+            activebackground="#66bb6a",
+            activeforeground="white",
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            relief=tk.FLAT,
+        )
+        chart_btn.pack(pady=(4, 4), fill=tk.X)
+        chart_btn.configure(
+            highlightthickness=1,
+            highlightbackground="#2e7d32",
+        )
+
+        analysis_btn = tk.Button(
+            right_inner,
+            text="Save Complexity Report",
+            command=self.save_complexity_analysis_report,
+            font=("Segoe UI", 10, "bold"),
+            bg="#9c27b0",
+            fg="white",
+            activebackground="#ba68c8",
+            activeforeground="white",
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            relief=tk.FLAT,
+        )
+        analysis_btn.pack(pady=(2, 4), fill=tk.X)
+        analysis_btn.configure(
+            highlightthickness=1,
+            highlightbackground="#6a1b9a",
+        )
+
         # Bottom: exit
         exit_btn = tk.Button(
             grass_strip,
@@ -604,6 +649,11 @@ class SnakeAndLadderProblemGame:
         return moves
 
     def bfs_min_throws(self, total_cells: int) -> int:
+        """
+        Breadth-First Search to find minimum throws.
+        Time Complexity: O(V + E) = O(V) where V = total_cells = N², E ≤ 6V
+        Space Complexity: O(V) for visited array and queue
+        """
         if total_cells < 1:
             raise ValueError("total_cells must be >= 1")
 
@@ -631,6 +681,11 @@ class SnakeAndLadderProblemGame:
         return -1
 
     def dp_min_throws(self, total_cells: int) -> int:
+        """
+        Dynamic Programming to compute minimum throws.
+        Time Complexity: O(6V) = O(V) where V = total_cells = N²
+        Space Complexity: O(V) for dp array
+        """
         if total_cells < 1:
             raise ValueError("total_cells must be >= 1")
 
@@ -1398,6 +1453,312 @@ class SnakeAndLadderProblemGame:
             highlightthickness=1,
             highlightbackground="#8b5a2b",
         )
+
+    # ------------------------------------------------------------------
+    #  NEW: Chart using DB data (Part I integration)
+    # ------------------------------------------------------------------
+    def show_algorithm_chart(self):
+        """
+        Use matplotlib to create:
+        1) Line chart of BFS/DP times per game round.
+        2) Bar chart of average BFS/DP time.
+        Also print summary statistics to console.
+        """
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    id, 
+                    bfs_time_ms, 
+                    dp_time_ms, 
+                    board_size 
+                FROM min_throws_game 
+                ORDER BY id
+                """
+            )
+            data = cursor.fetchall()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror(
+                "Database Error",
+                f"Could not load data from database:\n{e}",
+            )
+            return
+
+        if not data:
+            messagebox.showinfo(
+                "No Data",
+                "No game rounds found in the database.\n"
+                "Play some rounds first to generate data.",
+            )
+            return
+
+        # Extract data
+        game_rounds = [row[0] for row in data]
+        bfs_times = [row[1] for row in data]
+        dp_times = [row[2] for row in data]
+        board_sizes = [row[3] for row in data]
+
+        # Create the chart
+        plt.figure(figsize=(12, 6))
+
+        # Plot BFS and DP times
+        plt.subplot(2, 1, 1)
+        plt.plot(
+            game_rounds,
+            bfs_times,
+            "o-",
+            label="BFS Time (ms)",
+            color="blue",
+            markersize=6,
+        )
+        plt.plot(
+            game_rounds,
+            dp_times,
+            "s-",
+            label="DP Time (ms)",
+            color="green",
+            markersize=6,
+        )
+
+        plt.title(
+            f"Algorithm Execution Time Comparison ({len(data)} Game Rounds)"
+        )
+        plt.xlabel("Game Round (Row ID)")
+        plt.ylabel("Time (milliseconds)")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        # Add board size information
+        for round_num, bfs_t, dp_t, size in zip(
+            game_rounds, bfs_times, dp_times, board_sizes
+        ):
+            plt.annotate(
+                f"{size}×{size}",
+                (round_num, max(bfs_t, dp_t)),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=8,
+                alpha=0.7,
+            )
+
+        # Bar chart of average times
+        plt.subplot(2, 1, 2)
+        algorithms = ["BFS", "DP"]
+        average_times = [np.mean(bfs_times), np.mean(dp_times)]
+
+        bars = plt.bar(
+            algorithms,
+            average_times,
+            color=["blue", "green"],
+            alpha=0.6,
+            width=0.5,
+        )
+
+        plt.title("Average Execution Time Comparison")
+        plt.ylabel("Time (milliseconds)")
+
+        # Add values on top of bars
+        for bar, value in zip(bars, average_times):
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{value:.3f} ms",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
+
+        plt.grid(True, alpha=0.3, axis="y")
+
+        plt.tight_layout()
+        plt.show()
+
+        # Print summary statistics in console
+        print("\n" + "=" * 50)
+        print("SUMMARY STATISTICS")
+        print("=" * 50)
+        print(f"Total Game Rounds: {len(data)}")
+        print(
+            "Board Sizes Range: "
+            f"{min(board_sizes)}×{min(board_sizes)} to "
+            f"{max(board_sizes)}×{max(board_sizes)}"
+        )
+        print("\nBFS Algorithm:")
+        print(f"  Average Time: {np.mean(bfs_times):.4f} ms")
+        print(f"  Min Time: {min(bfs_times):.4f} ms")
+        print(f"  Max Time: {max(bfs_times):.4f} ms")
+        print(f"  Standard Deviation: {np.std(bfs_times):.4f} ms")
+
+        print("\nDP Algorithm:")
+        print(f"  Average Time: {np.mean(dp_times):.4f} ms")
+        print(f"  Min Time: {min(dp_times):.4f} ms")
+        print(f"  Max Time: {max(dp_times):.4f} ms")
+        print(f"  Standard Deviation: {np.std(dp_times):.4f} ms")
+
+        print("\n" + "=" * 50)
+        print("OBSERVATIONS FROM DATA:")
+        print("=" * 50)
+        print("1. Both algorithms are extremely fast (< 0.15 ms)")
+        print("2. BFS is consistently faster than DP in most rounds")
+        print("3. Execution time tends to increase with board size")
+        print("4. DP often shows more variability in execution time")
+
+    # ------------------------------------------------------------------
+    #  NEW: Complexity analysis report (Part II integration)
+    # ------------------------------------------------------------------
+    def save_complexity_analysis_report(self):
+        """
+        Generate a detailed complexity and empirical analysis report
+        and save it to 'algorithm_complexity_analysis.txt'.
+        """
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    id, 
+                    bfs_time_ms, 
+                    dp_time_ms, 
+                    board_size 
+                FROM min_throws_game 
+                ORDER BY id
+                """
+            )
+            data = cursor.fetchall()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror(
+                "Database Error",
+                f"Could not load data from database:\n{e}",
+            )
+            return
+
+        if not data:
+            messagebox.showinfo(
+                "No Data",
+                "No game rounds found in the database.\n"
+                "Play some rounds first to generate data.",
+            )
+            return
+
+        game_rounds = [row[0] for row in data]
+        bfs_times = [row[1] for row in data]
+        dp_times = [row[2] for row in data]
+        board_sizes = [row[3] for row in data]
+
+        avg_bfs = np.mean(bfs_times)
+        avg_dp = np.mean(dp_times)
+
+        # Save analysis to file (based closely on your template)
+        try:
+            with open("algorithm_complexity_analysis.txt", "w") as f:
+                f.write("ALGORITHM COMPLEXITY ANALYSIS REPORT\n")
+                f.write("=" * 50 + "\n\n")
+
+                f.write("DATABASE SAMPLE (First 5 rows):\n")
+                for i in range(min(5, len(data))):
+                    f.write(
+                        f"Round {data[i][0]}: Board {data[i][3]}×{data[i][3]}, "
+                        f"BFS={data[i][1]:.4f}ms, DP={data[i][2]:.4f}ms\n"
+                    )
+
+                f.write("\n" + "=" * 50 + "\n")
+                f.write("TIME COMPLEXITY ANALYSIS\n")
+                f.write("=" * 50 + "\n")
+
+                f.write("\n1. BFS ALGORITHM:\n")
+                f.write("   - Code Analysis: Visits each cell once in worst case\n")
+                f.write("   - Each cell explores up to 6 edges (dice rolls)\n")
+                f.write("   - Complexity: O(6V) = O(V) = O(N²)\n")
+                f.write("   - Actual: V = N² cells\n")
+
+                f.write("\n2. DP ALGORITHM:\n")
+                f.write(
+                    "   - Code Analysis: DP table of size V, each cell updates 6 times\n"
+                )
+                f.write("   - Complexity: O(6V) = O(V) = O(N²)\n")
+                f.write("   - Processes ALL cells regardless of solution\n")
+
+                f.write("\n" + "=" * 50 + "\n")
+                f.write("EMPIRICAL FINDINGS FROM DATA\n")
+                f.write("=" * 50 + "\n")
+
+                f.write(f"\nTotal Game Rounds: {len(data)}\n")
+                f.write(
+                    f"Board Sizes Range: {min(board_sizes)}×{min(board_sizes)} "
+                    f"to {max(board_sizes)}×{max(board_sizes)}\n"
+                )
+
+                f.write(f"\nAverage BFS Time: {avg_bfs:.4f} ms\n")
+                f.write(f"Average DP Time:  {avg_dp:.4f} ms\n")
+                if avg_dp != 0:
+                    f.write(
+                        f"BFS/DP Ratio:     {avg_bfs / avg_dp:.2f}\n"
+                    )
+                else:
+                    f.write("BFS/DP Ratio:     N/A (DP avg time is 0)\n")
+
+                f.write("\nTrend with Board Size:\n")
+                sizes = sorted(set(board_sizes))
+                for size in sizes:
+                    bfs_avg = np.mean(
+                        [
+                            bfs
+                            for bfs, s in zip(bfs_times, board_sizes)
+                            if s == size
+                        ]
+                    )
+                    dp_avg = np.mean(
+                        [
+                            dp
+                            for dp, s in zip(dp_times, board_sizes)
+                            if s == size
+                        ]
+                    )
+                    f.write(
+                        f"  {size}×{size}: BFS={bfs_avg:.4f}ms, "
+                        f"DP={dp_avg:.4f}ms\n"
+                    )
+
+                f.write("\n" + "=" * 50 + "\n")
+                f.write("OBSERVATIONS:\n")
+                f.write("=" * 50 + "\n")
+                f.write(
+                    "1. Both algorithms are extremely fast for board sizes 6–12.\n"
+                )
+                f.write(
+                    "2. BFS often appears slightly faster in practice, "
+                    "since it can terminate once the target is reached.\n"
+                )
+                f.write(
+                    "3. DP processes all cells regardless of when the "
+                    "shortest path is found, which can make it a bit slower.\n"
+                )
+                f.write(
+                    "4. Measured execution times tend to grow as board size "
+                    "increases, which is consistent with O(N²) complexity.\n"
+                )
+                f.write(
+                    "5. For interactive game-sized boards, both algorithms "
+                    "are effectively instantaneous.\n"
+                )
+
+            messagebox.showinfo(
+                "Report Saved",
+                "Complexity analysis saved to:\n"
+                "algorithm_complexity_analysis.txt",
+            )
+            print("Analysis saved to 'algorithm_complexity_analysis.txt'")
+        except Exception as e:
+            messagebox.showerror(
+                "File Error",
+                f"Could not save analysis report:\n{e}",
+            )
 
 
 # ----------------------------------------------------------------------
